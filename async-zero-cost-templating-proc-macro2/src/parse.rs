@@ -151,9 +151,19 @@ impl Parse for HtmlAttributeValue {
 }
 
 pub struct HtmlAttribute {
-    key: Ident,
-    equals: Token![=],
-    value: Html<HtmlAttributeValue>,
+    pub key: Ident,
+    pub equals: Token![=],
+    pub value: Html<HtmlAttributeValue>,
+}
+
+impl Parse for HtmlAttribute {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            key: input.parse()?,
+            equals: input.parse()?,
+            value: input.parse()?,
+        })
+    }
 }
 
 pub struct HtmlElement {
@@ -165,4 +175,10 @@ pub struct HtmlElement {
     pub close_start: (Token![<], Token![/]),
     pub close_tag_name: Ident,
     pub close_end: Token![>],
+}
+
+impl Parse for HtmlElement {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        todo!()
+    }
 }
