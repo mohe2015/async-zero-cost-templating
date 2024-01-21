@@ -20,54 +20,51 @@ use pin_project::pin_project;
 // we don't want to use an unstable edition so we can't use `async gen`
 // we don't want to use unsafe so we can't use an async coroutine lowering
 // RUSTFLAGS="-Zprint-type-sizes" cargo build > target/type-sizes.txt
-// {async fn
+// `{async fn
 // __awaitee is the thing we're currently awaiting
 
-pub struct FutureToStream<T> {
-    value: Cell<Option<T>>,
+type T = usize;
+
+thread_local! {
+    static VALUE: Cell<Option<T>> = Cell::new(None);
 }
 
-pub struct FutureToStreamRef<'a, T>(&'a FutureToStream<T>);
+pub struct FutureToStream;
 
-impl<'a, T> FutureToStreamRef<'a, T> {
-    pub fn _yield(self, value: T) -> Magic {
-        self.0.value.set(Some(value));
-        Magic::Pending
+impl FutureToStream {
+    pub fn _yield(&self, value: T) -> FutureToStream {
+        VALUE.set(Some(value));
+        FutureToStream
     }
 }
 
-pub enum Magic {
-    Pending,
-    Ready,
-}
-
-impl Future for Magic {
+impl Future for FutureToStream {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        match self.get_mut() {
-            value @ &mut Magic::Pending => {
-                *value = Magic::Ready;
+        match VALUE.take() {
+            Some(value) => {
+                VALUE.set(Some(value));
                 Poll::Pending
             }
-            &mut Magic::Ready => Poll::Ready(()),
+            None => Poll::Ready(()),
         }
     }
 }
 
-// 24 bytes
-pub async fn stream_example(stream: FutureToStreamRef<'_, usize>) {
-    stream._yield(1).await; // we could make the awaitee 1 bit
+pub async fn stream_example(stream: FutureToStream) {
+    stream._yield(1).await;
+    stream._yield(2).await;
+    stream._yield(3).await;
 }
 
 #[pin_project]
-pub struct TheStream<'a, T, F: Future<Output = ()>> {
-    future_to_stream: &'a FutureToStream<T>,
+pub struct TheStream<F: Future<Output = ()>> {
     #[pin]
     future: F,
 }
 
-impl<'a, T, F: Future<Output = ()>> Stream for TheStream<'a, T, F> {
+impl<F: Future<Output = ()>> Stream for TheStream<F> {
     type Item = T;
 
     fn poll_next(
@@ -80,7 +77,7 @@ impl<'a, T, F: Future<Output = ()>> Stream for TheStream<'a, T, F> {
         match result {
             Poll::Ready(_) => Poll::Ready(None),
             Poll::Pending => {
-                if let Some(value) = this.future_to_stream.value.take() {
+                if let Some(value) = VALUE.take() {
                     Poll::Ready(Some(value))
                 } else {
                     Poll::Pending
@@ -92,15 +89,9 @@ impl<'a, T, F: Future<Output = ()>> Stream for TheStream<'a, T, F> {
 
 #[tokio::test]
 pub async fn test1() {
-    let future_to_stream = FutureToStream::<usize> {
-        value: Cell::new(None),
-    };
-    let future = stream_example(FutureToStreamRef(&future_to_stream));
+    let future = stream_example(FutureToStream);
     let future = pin!(future);
-    let stream = TheStream {
-        future_to_stream: &future_to_stream,
-        future,
-    };
+    let stream = TheStream { future };
     let mut stream = pin!(stream);
     while let Some(value) = stream.next().await {
         eprintln!("got {}", value)
