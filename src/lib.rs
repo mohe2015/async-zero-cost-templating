@@ -7,6 +7,8 @@ macro_rules! html {
 
 type TemplatePart = ();
 
+// maybe this just also becomes a macro?
+// maybe we can create a basic macro_rules macro that works but is not efficient?
 fn main(title: TemplatePart, inner: TemplatePart) {
     html! {
         <html>
@@ -21,7 +23,7 @@ fn main(title: TemplatePart, inner: TemplatePart) {
 }
 
 html! {
-    template!(main("test",
+    template!(main(html! { {dynamically_calculate_title()} },
         html! {
             <div class=["hi "{ test }]>
                 {
@@ -32,10 +34,15 @@ html! {
                     let result = fetch_database_row().await;
                 }
                 // maybe accept normal syntax but just in a really specific form
-                foreach! (result, |row| {
+                foreach! (result, |row| html! {
                     <li>
                         { row.name }
                     </li>
+                })
+                if! (condition, html! {
+                    "true"
+                }, html! {
+                    "false"
                 })
             </div>
         }
