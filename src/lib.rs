@@ -27,17 +27,19 @@ pub struct FutureToStream<T> {
     value: Cell<Option<T>>,
 }
 
-#[pin_project]
-pub struct FutureToStreamYieldFuture<'a, T> {
-    future_to_stream: &'a FutureToStream<T>,
+impl<T> FutureToStream<T> {
+    pub fn _yield(&self, value: T) -> &Self {
+        self.value.set(Some(value));
+        self
+    }
 }
 
-impl<'a, T> Future for FutureToStreamYieldFuture<'a, T> {
+impl<T> Future for &FutureToStream<T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        if let Some(value) = self.future_to_stream.value.take() {
-            self.future_to_stream.value.set(Some(value));
+        if let Some(value) = self.value.take() {
+            self.value.set(Some(value));
             Poll::Pending
         } else {
             Poll::Ready(())
@@ -45,15 +47,7 @@ impl<'a, T> Future for FutureToStreamYieldFuture<'a, T> {
     }
 }
 
-impl<T> FutureToStream<T> {
-    pub fn _yield(&self, value: T) -> FutureToStreamYieldFuture<T> {
-        self.value.set(Some(value));
-        FutureToStreamYieldFuture {
-            future_to_stream: self,
-        }
-    }
-}
-
+// 32 bytes
 pub async fn stream_example(stream: &FutureToStream<usize>) {
     stream._yield(1).await;
     stream._yield(2).await;
