@@ -157,16 +157,20 @@ impl Parse for HtmlAttributeValue {
 
 pub struct HtmlAttribute {
     pub key: Ident,
-    pub equals: Token![=],
-    pub value: Html<HtmlAttributeValue>,
+    pub value: Option<(Token![=], Html<HtmlAttributeValue>)>,
 }
 
 impl Parse for HtmlAttribute {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         Ok(Self {
             key: input.parse()?,
-            equals: input.parse()?,
-            value: input.parse()?,
+            value: {
+                if input.peek(Token![=]) {
+                    Some((input.parse()?, input.parse()?))
+                } else {
+                    None
+                }
+            },
         })
     }
 }
