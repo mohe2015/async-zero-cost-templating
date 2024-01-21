@@ -26,10 +26,11 @@ pub async fn stream_example(stream: FutureToStream) {
     stream._yield(2).await;
     stream._yield(3).await;
 }
-
 #[tokio::test]
 pub async fn test1() {
     let stream = TheStream::new(stream_example);
+    assert_eq!(core::mem::size_of_val(&stream), 1);
+
     let mut stream = pin!(stream);
     while let Some(value) = stream.next().await {
         eprintln!("got {}", value)
