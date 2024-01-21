@@ -1,3 +1,4 @@
+pub mod codegen;
 pub mod future_to_stream;
 pub mod parse;
 
