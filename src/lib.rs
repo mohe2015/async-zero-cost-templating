@@ -13,6 +13,7 @@ use std::{
 
 use bytes::{Buf, Bytes};
 use futures_core::Stream;
+use futures_util::StreamExt as _;
 use http_body::{Body, Frame};
 use pin_project::pin_project;
 
@@ -60,8 +61,8 @@ impl<'a, T, F: Future<Output = ()>> Stream for TheStream<'a, T, F> {
     }
 }
 
-#[test]
-pub fn test1() {
+#[tokio::test]
+pub async fn test1() {
     let future_to_stream = FutureToStream::<usize> {
         value: Cell::new(None),
     };
@@ -71,6 +72,11 @@ pub fn test1() {
         future_to_stream: &future_to_stream,
         future,
     };
+    let mut stream = pin!(stream);
+    while let Some(value) = stream.next().await {
+        eprintln!("{}", value)
+    }
+    eprintln!("done")
 }
 
 macro_rules! html {
