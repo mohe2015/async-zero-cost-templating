@@ -19,6 +19,9 @@ use pin_project::pin_project;
 
 // we don't want to use an unstable edition so we can't use `async gen`
 // we don't want to use unsafe so we can't use an async coroutine lowering
+// RUSTFLAGS="-Zprint-type-sizes" cargo build > target/type-sizes.txt
+// {async fn
+// __awaitee is the thing we're currently awaiting
 
 pub struct FutureToStream<T> {
     value: Cell<Option<T>>,
@@ -26,16 +29,15 @@ pub struct FutureToStream<T> {
 
 #[pin_project]
 pub struct FutureToStreamYieldFuture<'a, T> {
-    value: Option<T>,
     future_to_stream: &'a FutureToStream<T>,
 }
 
 impl<'a, T> Future for FutureToStreamYieldFuture<'a, T> {
     type Output = ();
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        if let Some(value) = self.value.take() {
-            self.future_to_stream.value.set(self.value.take());
+    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        if let Some(value) = self.future_to_stream.value.take() {
+            self.future_to_stream.value.set(Some(value));
             Poll::Pending
         } else {
             Poll::Ready(())
@@ -45,8 +47,8 @@ impl<'a, T> Future for FutureToStreamYieldFuture<'a, T> {
 
 impl<T> FutureToStream<T> {
     pub fn _yield(&self, value: T) -> FutureToStreamYieldFuture<T> {
+        self.value.set(Some(value));
         FutureToStreamYieldFuture {
-            value: Some(value),
             future_to_stream: self,
         }
     }
