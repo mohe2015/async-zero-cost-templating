@@ -1,3 +1,11 @@
+#![feature(coroutines)]
+#![feature(coroutine_trait)]
+
+use std::{convert::Infallible, ops::Coroutine};
+
+use bytes::{Buf, Bytes};
+use http_body::{Body, Frame};
+
 macro_rules! html {
     ($($tt: tt)*) => {};
 }
@@ -47,4 +55,36 @@ html! {
             </div>
         }
     ))
+}
+
+pub fn generated_code() -> impl Coroutine<(), Yield = Bytes, Return = ()> {
+    || {
+        yield Bytes::from_static(br#"<div class="#);
+    }
+}
+
+// https://docs.rs/http-body/latest/http_body/trait.Body.html
+pub fn output(
+) -> impl for<'a> Coroutine<&'a mut std::task::Context<'a>, Yield = Frame<impl Buf>, Return = ()> {
+    |cx: &'a mut std::task::Context<'a>| {
+        yield Frame::data(&b"test"[..]);
+    }
+}
+
+pub struct TemplateHttpBody<C: Coroutine<(), Yield = Bytes, Return = ()>> {
+    coroutine: C,
+    chunk_size: usize,
+}
+
+impl<C: Coroutine<(), Yield = Bytes, Return = ()>> Body for TemplateHttpBody<C> {
+    type Data = &'static [u8];
+
+    type Error = Infallible;
+
+    fn poll_frame(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+        todo!()
+    }
 }
