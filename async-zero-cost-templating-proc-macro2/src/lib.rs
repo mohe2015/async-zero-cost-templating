@@ -48,7 +48,7 @@ pub fn main(_title: TemplatePart, _inner: TemplatePart) {
 html! {
     template!(main(html! { {dynamically_calculate_title()} },
         html! {
-            <div class=["hi "{ test }]>
+            <div class=["hi "{ test }] id="test">
                 {
                     let test = get_version();
                 }

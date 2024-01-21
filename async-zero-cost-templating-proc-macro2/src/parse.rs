@@ -1,8 +1,13 @@
 use proc_macro2_diagnostics::Diagnostic;
-use syn::{braced, parse::Parse, token::Brace, Block, Expr, LitStr, Pat, Token};
+use syn::{
+    braced,
+    parse::Parse,
+    token::{Brace, Token},
+    Block, Expr, Ident, LitStr, Pat, Token,
+};
 
 pub struct HtmlChildren {
-    pub children: Vec<HtmlChild>,
+    pub children: Vec<Html<HtmlChildren>>,
 }
 
 impl Parse for HtmlChildren {
@@ -22,14 +27,14 @@ impl Parse for HtmlChildren {
     }
 }
 
-pub enum HtmlChild {
+pub enum Html<Inner: Parse> {
     Literal(LitStr),
     Computed(Block),
-    If(HtmlIf),
-    For(HtmlForLoop),
+    If(HtmlIf<Inner>),
+    For(HtmlForLoop<Inner>),
 }
 
-impl Parse for HtmlChild {
+impl<Inner: Parse> Parse for Html<Inner> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let span = input.span();
         if input.peek(LitStr) {
@@ -48,14 +53,14 @@ impl Parse for HtmlChild {
     }
 }
 
-pub struct HtmlIf {
+pub struct HtmlIf<Inner: Parse> {
     pub if_token: Token![if],
     pub cond: Expr,
-    pub then_branch: (Brace, HtmlChildren),
-    pub else_branch: Option<(Token![else], Brace, HtmlChildren)>,
+    pub then_branch: (Brace, Inner),
+    pub else_branch: Option<(Token![else], Brace, Inner)>,
 }
 
-impl Parse for HtmlIf {
+impl<Inner: Parse> Parse for HtmlIf<Inner> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         Ok(HtmlIf {
             if_token: input.parse()?,
@@ -94,15 +99,15 @@ impl Parse for HtmlIf {
     }
 }
 
-pub struct HtmlForLoop {
+pub struct HtmlForLoop<Inner: Parse> {
     pub for_token: Token![for],
     pub pat: Pat,
     pub in_token: Token![in],
     pub expr: Expr,
-    pub body: (Brace, HtmlChildren),
+    pub body: (Brace, Inner),
 }
 
-impl Parse for HtmlForLoop {
+impl<Inner: Parse> Parse for HtmlForLoop<Inner> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let for_token: Token![for] = input.parse()?;
 
@@ -122,4 +127,42 @@ impl Parse for HtmlForLoop {
             body: (brace_token, content.parse()?),
         })
     }
+}
+
+pub struct HtmlAttributeValue {
+    pub children: Vec<Html<HtmlAttributeValue>>,
+}
+
+impl Parse for HtmlAttributeValue {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let span = input.span();
+
+        let mut children = Vec::new();
+        while !input.is_empty() && !(input.peek(Token![<]) && input.peek2(Token![/])) {
+            let child_start_span = input.span();
+            children.push(input.parse().map_err(|err| {
+                Diagnostic::from(err)
+                    .span_note(child_start_span, "while parsing attribute value part")
+                    .span_note(span, "while parsing attribute value")
+            })?);
+        }
+        Ok(Self { children })
+    }
+}
+
+pub struct HtmlAttribute {
+    key: Ident,
+    equals: Token![=],
+    value: Html<HtmlAttributeValue>,
+}
+
+pub struct HtmlElement {
+    pub open_start: Token![<],
+    pub open_tag_name: Ident,
+    pub attributes: Vec<HtmlAttribute>,
+    pub open_end: Token![>],
+    pub children: HtmlChildren,
+    pub close_start: (Token![<], Token![/]),
+    pub close_tag_name: Ident,
+    pub close_end: Token![>],
 }
