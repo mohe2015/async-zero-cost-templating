@@ -171,14 +171,28 @@ impl Parse for HtmlAttribute {
     }
 }
 
+pub struct HtmlTag {
+    pub exclamation: Option<Token![!]>,
+    pub name: Ident,
+}
+
+impl Parse for HtmlTag {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            exclamation: input.parse()?,
+            name: input.parse()?,
+        })
+    }
+}
+
 pub struct HtmlElement {
     pub open_start: Token![<],
-    pub open_tag_name: Ident,
+    pub open_tag_name: HtmlTag,
     pub attributes: Vec<HtmlAttribute>,
     pub open_end: Token![>],
     pub children: HtmlChildren,
     pub close_start: (Token![<], Token![/]),
-    pub close_tag_name: Ident,
+    pub close_tag_name: HtmlTag,
     pub close_end: Token![>],
 }
 
