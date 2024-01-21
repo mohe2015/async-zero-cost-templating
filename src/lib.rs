@@ -30,29 +30,34 @@ pub struct FutureToStream<T> {
 pub struct FutureToStreamRef<'a, T>(&'a FutureToStream<T>);
 
 impl<'a, T> FutureToStreamRef<'a, T> {
-    pub fn _yield(self, value: T) -> Self {
+    pub fn _yield(self, value: T) -> Magic {
         self.0.value.set(Some(value));
-        self
+        Magic::Pending
     }
 }
 
-impl<'a, T> Future for FutureToStreamRef<'a, T> {
-    type Output = Self;
+pub enum Magic {
+    Pending,
+    Ready,
+}
+
+impl Future for Magic {
+    type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        if let Some(value) = self.0.value.take() {
-            self.0.value.set(Some(value));
-            Poll::Pending
-        } else {
-            Poll::Ready(Self(self.0))
+        match self.get_mut() {
+            value @ &mut Magic::Pending => {
+                *value = Magic::Ready;
+                Poll::Pending
+            }
+            &mut Magic::Ready => Poll::Ready(()),
         }
     }
 }
 
 // 24 bytes
-pub async fn stream_example(mut stream: FutureToStreamRef<'_, usize>) {
-    stream = stream._yield(1).await;
-    stream = stream._yield(2).await;
+pub async fn stream_example(stream: FutureToStreamRef<'_, usize>) {
+    stream._yield(1).await; // we could make the awaitee 1 bit
 }
 
 #[pin_project]
