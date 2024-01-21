@@ -17,6 +17,9 @@ use futures_util::StreamExt as _;
 use http_body::{Body, Frame};
 use pin_project::pin_project;
 
+// we don't want to use an unstable edition so we can't use `async gen`
+// we don't want to use unsafe so we can't use an async coroutine lowering
+
 pub struct FutureToStream<T> {
     value: Cell<Option<T>>,
 }
