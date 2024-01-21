@@ -1,10 +1,5 @@
 use proc_macro2_diagnostics::Diagnostic;
-use syn::{
-    braced,
-    parse::Parse,
-    token::{Brace, Token},
-    Block, Expr, Ident, LitStr, Pat, Token,
-};
+use syn::{braced, parse::Parse, token::Brace, Block, Expr, Ident, LitStr, Pat, Token};
 
 pub struct HtmlChildren {
     pub children: Vec<Html<HtmlChildren>>,
@@ -37,19 +32,24 @@ pub enum Html<Inner: Parse> {
 
 impl<Inner: Parse> Parse for Html<Inner> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let lookahead = input.lookahead1();
         let span = input.span();
-        if input.peek(LitStr) {
+        if lookahead.peek(LitStr) {
             Ok(Self::Literal(input.parse()?))
-        } else if input.peek(Token![if]) {
+        } else if lookahead.peek(Token![if]) {
             Ok(Self::If(input.parse().map_err(|err| {
                 Diagnostic::from(err).span_note(span, "while parsing if")
             })?))
-        } else if input.peek(Token![for]) {
+        } else if lookahead.peek(Token![for]) {
             Ok(Self::For(input.parse().map_err(|err| {
                 Diagnostic::from(err).span_note(span, "while parsing for")
             })?))
-        } else {
+        } else if lookahead.peek(Brace) {
             Ok(Self::Computed(input.parse()?))
+        } else if lookahead.peek(Token![<]) {
+            Ok(Self::Element(input.parse()?))
+        } else {
+            Err(lookahead.error())
         }
     }
 }
