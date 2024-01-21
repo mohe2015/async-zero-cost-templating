@@ -1,6 +1,5 @@
 use syn::{
-    parse::{discouraged::AnyDelimiter, Nothing, Parse},
-    punctuated::Punctuated,
+    parse::{Parse},
     LitStr, Token,
 };
 

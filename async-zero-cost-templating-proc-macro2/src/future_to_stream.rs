@@ -23,7 +23,7 @@ impl FutureToStream {
 impl Future for FutureToStream {
     type Output = ();
 
-    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         match VALUE.take() {
             Some(value) => {
                 VALUE.set(Some(value));

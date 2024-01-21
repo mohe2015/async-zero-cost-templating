@@ -1,20 +1,13 @@
 pub mod future_to_stream;
 pub mod parse;
 
-use std::{
-    cell::Cell,
-    convert::Infallible,
-    future::Future,
-    pin::{pin, Pin},
-    task::Poll,
-};
+use std::convert::Infallible;
 
 use bytes::Bytes;
-use future_to_stream::{FutureToStream, TheStream};
+use future_to_stream::FutureToStream;
 use futures_core::Stream;
-use futures_util::StreamExt as _;
+
 use http_body::{Body, Frame};
-use pin_project::pin_project;
 
 // we don't want to use an unstable edition so we can't use `async gen`
 // we don't want to use unsafe so we can't use an async coroutine lowering
@@ -26,17 +19,6 @@ pub async fn stream_example(stream: FutureToStream) {
     stream._yield(1).await;
     stream._yield(2).await;
     stream._yield(3).await;
-}
-#[tokio::test]
-pub async fn test1() {
-    let stream = TheStream::new(stream_example);
-    assert_eq!(core::mem::size_of_val(&stream), 1);
-
-    let mut stream = pin!(stream);
-    while let Some(value) = stream.next().await {
-        eprintln!("got {}", value)
-    }
-    eprintln!("done")
 }
 
 macro_rules! html {
@@ -50,7 +32,7 @@ type TemplatePart = ();
 
 // maybe this just also becomes a macro?
 // maybe we can create a basic macro_rules macro that works but is not efficient?
-fn main(title: TemplatePart, inner: TemplatePart) {
+fn main(_title: TemplatePart, _inner: TemplatePart) {
     html! {
         <html>
             <head>
@@ -111,8 +93,29 @@ impl<S: Stream<Item = Bytes>> Body for TemplateHttpBody<S> {
 
     fn poll_frame(
         self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::pin::pin;
+
+    use futures_util::StreamExt as _;
+
+    use crate::{future_to_stream::TheStream, stream_example};
+
+    #[tokio::test]
+    pub async fn test1() {
+        let stream = TheStream::new(stream_example);
+        assert_eq!(core::mem::size_of_val(&stream), 1);
+
+        let mut stream = pin!(stream);
+        while let Some(value) = stream.next().await {
+            eprintln!("got {}", value)
+        }
+        eprintln!("done")
     }
 }
