@@ -25,7 +25,7 @@ impl Parse for HtmlChild {
 impl Parse for HtmlChildren {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut children = Vec::new();
-        while !(input.peek(Token![<]) && input.peek2(Token![/])) {
+        while !input.is_empty() && !(input.peek(Token![<]) && input.peek2(Token![/])) {
             children.push(input.parse()?);
         }
         Ok(Self { children })
