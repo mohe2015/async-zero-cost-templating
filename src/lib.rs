@@ -28,19 +28,17 @@ pub struct FutureToStream<T> {
 pub struct FutureToStreamYieldFuture<'a, T> {
     value: Option<T>,
     future_to_stream: &'a FutureToStream<T>,
-    done: bool,
 }
 
 impl<'a, T> Future for FutureToStreamYieldFuture<'a, T> {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        if self.done {
-            Poll::Ready(())
-        } else {
+        if let Some(value) = self.value.take() {
             self.future_to_stream.value.set(self.value.take());
-            self.done = true;
             Poll::Pending
+        } else {
+            Poll::Ready(())
         }
     }
 }
@@ -50,7 +48,6 @@ impl<T> FutureToStream<T> {
         FutureToStreamYieldFuture {
             value: Some(value),
             future_to_stream: self,
-            done: false,
         }
     }
 }
