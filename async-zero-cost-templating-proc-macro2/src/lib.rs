@@ -57,16 +57,17 @@ html! {
                     let result = fetch_database_row().await;
                 }
                 // maybe accept normal syntax but just in a really specific form
-                foreach! (result, |row| html! {
+                for row in result {
                     <li>
                         { row.name }
                     </li>
-                })
-                if! (condition, html! {
+                }
+                if condition {
                     "true"
-                }, html! {
+                    { test }
+                } else {
                     "false"
-                })
+                }
             </div>
         }
     ))
