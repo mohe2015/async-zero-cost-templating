@@ -32,6 +32,7 @@ pub enum Html<Inner: Parse> {
     Computed(Block),
     If(HtmlIf<Inner>),
     For(HtmlForLoop<Inner>),
+    Element(HtmlElement),
 }
 
 impl<Inner: Parse> Parse for Html<Inner> {
@@ -179,6 +180,25 @@ pub struct HtmlElement {
 
 impl Parse for HtmlElement {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        todo!()
+        Ok(Self {
+            open_start: input.parse()?,
+            open_tag_name: input.parse()?,
+            attributes: {
+                let mut attributes = Vec::new();
+                while !input.peek(Token![>]) {
+                    let attribute_start_span = input.span();
+                    attributes.push(input.parse().map_err(|err| {
+                        Diagnostic::from(err)
+                            .span_note(attribute_start_span, "while parsing attribute")
+                    })?);
+                }
+                attributes
+            },
+            open_end: input.parse()?,
+            children: input.parse()?,
+            close_start: (input.parse()?, input.parse()?),
+            close_tag_name: input.parse()?,
+            close_end: input.parse()?,
+        })
     }
 }
