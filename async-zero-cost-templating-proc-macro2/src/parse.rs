@@ -1,14 +1,12 @@
-use syn::{
-    parse::{Parse},
-    LitStr, Token,
-};
+use syn::{parse::Parse, Block, LitStr, Token};
 
 pub struct HtmlChildren {
-    children: Vec<HtmlChild>,
+    pub children: Vec<HtmlChild>,
 }
 
 pub enum HtmlChild {
     Literal(LitStr),
+    Computed(Block),
 }
 
 impl Parse for HtmlChild {
@@ -16,7 +14,7 @@ impl Parse for HtmlChild {
         if input.peek(LitStr) {
             Ok(Self::Literal(input.parse()?))
         } else {
-            todo!()
+            Ok(Self::Computed(input.parse()?))
         }
     }
 }

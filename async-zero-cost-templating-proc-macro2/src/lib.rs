@@ -28,11 +28,11 @@ macro_rules! html {
 // it should emit blocks of a specified size to reduce fragmentation. This means the goal is not always lowest latency but little overhead and then lowest latency
 // syntax inspired by https://yew.rs/docs/concepts/basic-web-technologies/html
 
-type TemplatePart = ();
+pub type TemplatePart = ();
 
 // maybe this just also becomes a macro?
 // maybe we can create a basic macro_rules macro that works but is not efficient?
-fn main(_title: TemplatePart, _inner: TemplatePart) {
+pub fn main(_title: TemplatePart, _inner: TemplatePart) {
     html! {
         <html>
             <head>
@@ -82,8 +82,8 @@ pub fn output(
 }
 */
 pub struct TemplateHttpBody<S: Stream<Item = Bytes>> {
-    stream: S,
-    chunk_size: usize,
+    pub stream: S,
+    pub chunk_size: usize,
 }
 
 impl<S: Stream<Item = Bytes>> Body for TemplateHttpBody<S> {
