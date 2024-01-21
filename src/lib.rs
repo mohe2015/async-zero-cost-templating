@@ -1,17 +1,15 @@
-#![feature(coroutines)]
-#![feature(coroutine_trait)]
+pub mod future_to_stream;
 
 use std::{
     cell::Cell,
     convert::Infallible,
     future::Future,
-    marker::PhantomData,
-    ops::Coroutine,
     pin::{pin, Pin},
     task::Poll,
 };
 
-use bytes::{Buf, Bytes};
+use bytes::Bytes;
+use future_to_stream::{FutureToStream, TheStream};
 use futures_core::Stream;
 use futures_util::StreamExt as _;
 use http_body::{Body, Frame};
@@ -23,75 +21,15 @@ use pin_project::pin_project;
 // `{async fn
 // __awaitee is the thing we're currently awaiting
 
-type T = usize;
-
-thread_local! {
-    static VALUE: Cell<Option<T>> = Cell::new(None);
-}
-
-pub struct FutureToStream;
-
-impl FutureToStream {
-    pub fn _yield(&self, value: T) -> FutureToStream {
-        VALUE.set(Some(value));
-        FutureToStream
-    }
-}
-
-impl Future for FutureToStream {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        match VALUE.take() {
-            Some(value) => {
-                VALUE.set(Some(value));
-                Poll::Pending
-            }
-            None => Poll::Ready(()),
-        }
-    }
-}
-
 pub async fn stream_example(stream: FutureToStream) {
     stream._yield(1).await;
     stream._yield(2).await;
     stream._yield(3).await;
 }
 
-#[pin_project]
-pub struct TheStream<F: Future<Output = ()>> {
-    #[pin]
-    future: F,
-}
-
-impl<F: Future<Output = ()>> Stream for TheStream<F> {
-    type Item = T;
-
-    fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        let this = self.project();
-        let result = this.future.poll(cx);
-        println!("{:?}", result);
-        match result {
-            Poll::Ready(_) => Poll::Ready(None),
-            Poll::Pending => {
-                if let Some(value) = VALUE.take() {
-                    Poll::Ready(Some(value))
-                } else {
-                    Poll::Pending
-                }
-            }
-        }
-    }
-}
-
 #[tokio::test]
 pub async fn test1() {
-    let future = stream_example(FutureToStream);
-    let future = pin!(future);
-    let stream = TheStream { future };
+    let stream = TheStream::new(stream_example);
     let mut stream = pin!(stream);
     while let Some(value) = stream.next().await {
         eprintln!("got {}", value)
@@ -150,11 +88,6 @@ html! {
     ))
 }
 
-pub fn generated_code() -> impl Coroutine<(), Yield = Bytes, Return = ()> {
-    || {
-        yield Bytes::from_static(br#"<div class="#);
-    }
-}
 /*
 // https://docs.rs/http-body/latest/http_body/trait.Body.html
 pub fn output(
@@ -164,12 +97,12 @@ pub fn output(
     }
 }
 */
-pub struct TemplateHttpBody<C: Coroutine<(), Yield = Bytes, Return = ()>> {
-    coroutine: C,
+pub struct TemplateHttpBody<S: Stream<Item = Bytes>> {
+    stream: S,
     chunk_size: usize,
 }
 
-impl<C: Coroutine<(), Yield = Bytes, Return = ()>> Body for TemplateHttpBody<C> {
+impl<S: Stream<Item = Bytes>> Body for TemplateHttpBody<S> {
     type Data = &'static [u8];
 
     type Error = Infallible;
