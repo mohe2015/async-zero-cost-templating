@@ -1,3 +1,11 @@
 {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "evenBetterToml.formatter.reorderKeys": true,
+    "evenBetterToml.formatter.reorderArrays": true,
+    "evenBetterToml.formatter.alignEntries": true,
+    "evenBetterToml.formatter.arrayTrailingComma": true,
+    "evenBetterToml.formatter.alignComments": true,
+    "evenBetterToml.formatter.arrayAutoCollapse": false,
+    "evenBetterToml.formatter.arrayAutoExpand": true,
+    "evenBetterToml.schema.links": true
 }

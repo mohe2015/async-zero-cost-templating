@@ -1,4 +1,5 @@
 pub mod future_to_stream;
+pub mod parse;
 
 use std::{
     cell::Cell,
