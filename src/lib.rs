@@ -21,9 +21,34 @@ pub struct FutureToStream<T> {
     value: Cell<Option<T>>,
 }
 
+#[pin_project]
+pub struct FutureToStreamYieldFuture<'a, T> {
+    value: Option<T>,
+    future_to_stream: &'a FutureToStream<T>,
+    done: bool,
+}
+
+impl<'a, T> Future for FutureToStreamYieldFuture<'a, T> {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        if self.done {
+            Poll::Ready(())
+        } else {
+            self.future_to_stream.value.set(self.value.take());
+            self.done = true;
+            Poll::Pending
+        }
+    }
+}
+
 impl<T> FutureToStream<T> {
-    pub async fn _yield(&self, value: T) {
-        self.value.set(Some(value));
+    pub fn _yield(&self, value: T) -> FutureToStreamYieldFuture<T> {
+        FutureToStreamYieldFuture {
+            value: Some(value),
+            future_to_stream: self,
+            done: false,
+        }
     }
 }
 
@@ -48,6 +73,7 @@ impl<'a, T, F: Future<Output = ()>> Stream for TheStream<'a, T, F> {
     ) -> std::task::Poll<Option<Self::Item>> {
         let this = self.project();
         let result = this.future.poll(cx);
+        println!("{:?}", result);
         match result {
             Poll::Ready(_) => Poll::Ready(None),
             Poll::Pending => {
@@ -74,7 +100,7 @@ pub async fn test1() {
     };
     let mut stream = pin!(stream);
     while let Some(value) = stream.next().await {
-        eprintln!("{}", value)
+        eprintln!("got {}", value)
     }
     eprintln!("done")
 }
