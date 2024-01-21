@@ -195,9 +195,7 @@ pub struct HtmlElement {
     pub attributes: Vec<HtmlAttribute>,
     pub open_end: Token![>],
     pub children: HtmlChildren,
-    pub close_start: (Token![<], Token![/]),
-    pub close_tag_name: HtmlTag,
-    pub close_end: Token![>],
+    pub close: Option<(Token![<], Token![/], HtmlTag, Token![>])>,
 }
 
 impl Parse for HtmlElement {
@@ -218,9 +216,18 @@ impl Parse for HtmlElement {
             },
             open_end: input.parse()?,
             children: input.parse()?,
-            close_start: (input.parse()?, input.parse()?),
-            close_tag_name: input.parse()?,
-            close_end: input.parse()?,
+            close: {
+                if input.peek(Token![<]) {
+                    Some((
+                        input.parse()?,
+                        input.parse()?,
+                        input.parse()?,
+                        input.parse()?,
+                    ))
+                } else {
+                    None
+                }
+            },
         })
     }
 }
