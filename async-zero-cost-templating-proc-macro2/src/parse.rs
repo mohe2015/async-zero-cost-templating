@@ -1,5 +1,5 @@
 use proc_macro2_diagnostics::Diagnostic;
-use syn::{braced, parse::Parse, token::Brace, Block, Expr, LitStr, Token};
+use syn::{braced, parse::Parse, token::Brace, Block, Expr, LitStr, Pat, Token};
 
 pub struct HtmlChildren {
     pub children: Vec<HtmlChild>,
@@ -26,6 +26,7 @@ pub enum HtmlChild {
     Literal(LitStr),
     Computed(Block),
     If(HtmlIf),
+    For(HtmlForLoop),
 }
 
 impl Parse for HtmlChild {
@@ -36,6 +37,10 @@ impl Parse for HtmlChild {
         } else if input.peek(Token![if]) {
             Ok(Self::If(input.parse().map_err(|err| {
                 Diagnostic::from(err).span_note(span, "while parsing if")
+            })?))
+        } else if input.peek(Token![for]) {
+            Ok(Self::For(input.parse().map_err(|err| {
+                Diagnostic::from(err).span_note(span, "while parsing for")
             })?))
         } else {
             Ok(Self::Computed(input.parse()?))
@@ -85,6 +90,36 @@ impl Parse for HtmlIf {
                     None
                 }
             },
+        })
+    }
+}
+
+pub struct HtmlForLoop {
+    pub for_token: Token![for],
+    pub pat: Pat,
+    pub in_token: Token![in],
+    pub expr: Expr,
+    pub body: (Brace, HtmlChildren),
+}
+
+impl Parse for HtmlForLoop {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let for_token: Token![for] = input.parse()?;
+
+        let pat = Pat::parse_multi_with_leading_vert(input)?;
+
+        let in_token: Token![in] = input.parse()?;
+        let expr: Expr = input.call(Expr::parse_without_eager_brace)?;
+
+        let content;
+        let brace_token = braced!(content in input);
+
+        Ok(HtmlForLoop {
+            for_token,
+            pat,
+            in_token,
+            expr,
+            body: (brace_token, content.parse()?),
         })
     }
 }
