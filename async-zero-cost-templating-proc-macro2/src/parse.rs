@@ -4,7 +4,7 @@ use syn::{
     LitStr, Token,
 };
 
-struct HtmlChildren {
+pub struct HtmlChildren {
     children: Vec<HtmlChild>,
 }
 
