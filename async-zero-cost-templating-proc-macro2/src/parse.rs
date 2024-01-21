@@ -45,9 +45,13 @@ impl<Inner: Parse> Parse for Html<Inner> {
                 Diagnostic::from(err).span_note(span, "while parsing for")
             })?))
         } else if lookahead.peek(Brace) {
-            Ok(Self::Computed(input.parse()?))
+            Ok(Self::Computed(input.parse().map_err(|err| {
+                Diagnostic::from(err).span_note(span, "while parsing computed")
+            })?))
         } else if lookahead.peek(Token![<]) {
-            Ok(Self::Element(input.parse()?))
+            Ok(Self::Element(input.parse().map_err(|err| {
+                Diagnostic::from(err).span_note(span, "while parsing element")
+            })?))
         } else {
             Err(lookahead.error())
         }
