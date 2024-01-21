@@ -1,10 +1,77 @@
 #![feature(coroutines)]
 #![feature(coroutine_trait)]
 
-use std::{convert::Infallible, ops::Coroutine};
+use std::{
+    cell::Cell,
+    convert::Infallible,
+    future::Future,
+    marker::PhantomData,
+    ops::Coroutine,
+    pin::{pin, Pin},
+    task::Poll,
+};
 
 use bytes::{Buf, Bytes};
+use futures_core::Stream;
 use http_body::{Body, Frame};
+use pin_project::pin_project;
+
+pub struct FutureToStream<T> {
+    value: Cell<Option<T>>,
+}
+
+impl<T> FutureToStream<T> {
+    pub async fn _yield(&self, value: T) {
+        self.value.set(Some(value));
+    }
+}
+
+pub async fn stream_example(stream: &FutureToStream<usize>) {
+    stream._yield(1).await;
+    stream._yield(2).await;
+}
+
+#[pin_project]
+pub struct TheStream<'a, T, F: Future<Output = ()>> {
+    future_to_stream: &'a FutureToStream<T>,
+    #[pin]
+    future: F,
+}
+
+impl<'a, T, F: Future<Output = ()>> Stream for TheStream<'a, T, F> {
+    type Item = T;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let this = self.project();
+        let result = this.future.poll(cx);
+        match result {
+            Poll::Ready(_) => Poll::Ready(None),
+            Poll::Pending => {
+                if let Some(value) = this.future_to_stream.value.take() {
+                    Poll::Ready(Some(value))
+                } else {
+                    Poll::Pending
+                }
+            }
+        }
+    }
+}
+
+#[test]
+pub fn test1() {
+    let future_to_stream = FutureToStream::<usize> {
+        value: Cell::new(None),
+    };
+    let future = stream_example(&future_to_stream);
+    let future = pin!(future);
+    let stream = TheStream {
+        future_to_stream: &future_to_stream,
+        future,
+    };
+}
 
 macro_rules! html {
     ($($tt: tt)*) => {};
@@ -62,15 +129,15 @@ pub fn generated_code() -> impl Coroutine<(), Yield = Bytes, Return = ()> {
         yield Bytes::from_static(br#"<div class="#);
     }
 }
-
+/*
 // https://docs.rs/http-body/latest/http_body/trait.Body.html
 pub fn output(
 ) -> impl for<'a> Coroutine<&'a mut std::task::Context<'a>, Yield = Frame<impl Buf>, Return = ()> {
-    |cx: &'a mut std::task::Context<'a>| {
+    async || {
         yield Frame::data(&b"test"[..]);
     }
 }
-
+*/
 pub struct TemplateHttpBody<C: Coroutine<(), Yield = Bytes, Return = ()>> {
     coroutine: C,
     chunk_size: usize,
