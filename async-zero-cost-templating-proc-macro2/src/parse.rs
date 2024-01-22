@@ -1,28 +1,45 @@
 use std::fmt::Display;
 
+use proc_macro2::TokenTree;
 use proc_macro2_diagnostics::Diagnostic;
 use syn::{
-    braced, parse::Parse, spanned::Spanned, token::Brace, Block, Expr, Ident, LitStr, Pat, Token,
+    braced, parse::{Parse, ParseStream}, spanned::Spanned, token::Brace, Block, Expr, Ident, LitStr, Pat, Token,
 };
 
+trait MyParse {
+    /// We don't want to always abort parsing on failures to get better IDE support and also show more errors directly
+    fn parse(input: ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> where Self: Sized;
+}
+
 // https://docs.rs/syn/latest/syn/spanned/index.html sounds like nightly should produce much better spans
+
+// self and no errors
+// self and errors
+// no self and errors
 
 pub struct HtmlChildren {
     pub children: Vec<Html<HtmlChildren>>,
 }
 
-impl Parse for HtmlChildren {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+impl MyParse for HtmlChildren {
+    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = input.cursor().token_stream().span();
 
         let mut children = Vec::new();
         while !input.is_empty() && !(input.peek(Token![<]) && input.peek2(Token![/])) {
             let child_start_span = input.cursor().token_stream().span();
-            children.push(input.parse().map_err(|err| {
+            MyParse::parse(input, diagnostics);
+            // we want to add context so we need to know which diagnostics got added
+            let child = .map_err(|err| {
                 Diagnostic::from(err)
                     .span_note(child_start_span, "while parsing child")
                     .span_note(span, "while parsing children")
-            })?);
+            });
+            match child {
+                Ok(child) => children.push(child),
+             Err(error) => error.emit_as_expr_tokens();
+
+            }
         }
         Ok(Self { children })
     }
@@ -30,14 +47,14 @@ impl Parse for HtmlChildren {
 
 pub enum Html<Inner> {
     Literal(LitStr),
-    Computed(Block),
+    Computed(TokenTree),
     If(HtmlIf<Inner>),
     For(HtmlForLoop<Inner>),
     Element(HtmlElement),
 }
 
-impl<Inner: Parse> Parse for Html<Inner> {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+impl<Inner: MyParse> MyParse for Html<Inner> {
+    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
         let lookahead = input.lookahead1();
         let span = input.cursor().token_stream().span();
         if lookahead.peek(LitStr) {
@@ -66,13 +83,13 @@ impl<Inner: Parse> Parse for Html<Inner> {
 
 pub struct HtmlIf<Inner> {
     pub if_token: Token![if],
-    pub cond: Expr,
+    pub cond: Vec<TokenTree>,
     pub then_branch: (Brace, Inner),
     pub else_branch: Option<(Token![else], Brace, Inner)>,
 }
 
-impl<Inner: Parse> Parse for HtmlIf<Inner> {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+impl<Inner: MyParse> MyParse for HtmlIf<Inner> {
+    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
         Ok(HtmlIf {
             if_token: input.parse()?,
             cond: {
@@ -114,12 +131,12 @@ pub struct HtmlForLoop<Inner> {
     pub for_token: Token![for],
     pub pat: Pat,
     pub in_token: Token![in],
-    pub expr: Expr,
+    pub expr: Vec<TokenTree>,
     pub body: (Brace, Inner),
 }
 
-impl<Inner: Parse> Parse for HtmlForLoop<Inner> {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+impl<Inner: MyParse> MyParse for HtmlForLoop<Inner> {
+    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
         let for_token: Token![for] = input.parse()?;
 
         let pat = Pat::parse_multi_with_leading_vert(input)?;
@@ -144,8 +161,8 @@ pub struct HtmlAttributeValue {
     pub children: Vec<Html<HtmlAttributeValue>>,
 }
 
-impl Parse for HtmlAttributeValue {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+impl MyParse for HtmlAttributeValue {
+    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = input.cursor().token_stream().span();
 
         let mut children = Vec::new();
@@ -166,8 +183,8 @@ pub struct HtmlAttribute {
     pub value: Option<(Token![=], Html<HtmlAttributeValue>)>,
 }
 
-impl Parse for HtmlAttribute {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+impl MyParse for HtmlAttribute {
+    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
         Ok(Self {
             key: input.parse()?,
             value: {
@@ -211,8 +228,8 @@ impl Display for HtmlTag {
     }
 }
 
-impl Parse for HtmlTag {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+impl MyParse for HtmlTag {
+    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
         Ok(Self {
             exclamation: input.parse()?,
             name: input.parse()?,
@@ -228,8 +245,8 @@ pub struct HtmlElement {
     pub children: Option<(HtmlChildren, Token![<], Token![/], HtmlTag, Token![>])>,
 }
 
-impl Parse for HtmlElement {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+impl MyParse for HtmlElement {
+    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
         let open_start = input.parse()?;
         let open_tag_name: HtmlTag = input.parse()?;
         let open_tag_name_text = open_tag_name.to_string();
