@@ -10,11 +10,22 @@ use syn::{
     Block, Expr, Ident, LitStr, Pat, Token,
 };
 
-trait MyParse {
+trait MyParse<T> {
     /// We don't want to always abort parsing on failures to get better IDE support and also show more errors directly
-    fn parse(input: ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>)
+    fn my_parse(self) -> (Result<T, ()>, Vec<Diagnostic>);
+}
+
+impl<T: Parse> MyParse<T> for ParseStream<'_> {
+    fn my_parse(self) -> (Result<T, ()>, Vec<Diagnostic>)
     where
-        Self: Sized;
+        Self: Sized,
+    {
+        let result = self.parse();
+        match result {
+            Ok(t) => (Ok(t), Vec::new()),
+            Err(err) => (Err(()), Vec::from([Diagnostic::from(err)])),
+        }
+    }
 }
 
 trait MyParseExt {
@@ -42,20 +53,21 @@ pub struct HtmlChildren {
     pub children: Vec<Html<HtmlChildren>>,
 }
 
-impl MyParse for HtmlChildren {
-    fn parse(input: syn::parse::ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>) {
-        let span = input.cursor().token_stream().span();
+impl MyParse<HtmlChildren> for ParseStream<'_> {
+    fn my_parse(self) -> (Result<HtmlChildren, ()>, Vec<Diagnostic>) {
+        let span = self.cursor().token_stream().span();
 
         let mut diagnostics = Vec::new();
 
         let mut children = Vec::new();
-        while !input.is_empty() && !(input.peek(Token![<]) && input.peek2(Token![/])) {
-            let child_start_span = input.cursor().token_stream().span();
-            let (child, new_diagnostics) = MyParse::parse(input).diagnostic_context(|diagnostic| {
-                diagnostic
-                    .span_note(child_start_span, "while parsing child")
-                    .span_note(span, "while parsing children")
-            });
+        while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
+            let child_start_span = self.cursor().token_stream().span();
+            let (child, new_diagnostics) =
+                MyParse::my_parse(self).diagnostic_context(|diagnostic| {
+                    diagnostic
+                        .span_note(child_start_span, "while parsing child")
+                        .span_note(span, "while parsing children")
+                });
             diagnostics.extend(new_diagnostics);
             if let Ok(child) = child {
                 children.push(child);
@@ -73,26 +85,26 @@ pub enum Html<Inner> {
     Element(HtmlElement),
 }
 
-impl<Inner: MyParse> MyParse for Html<Inner> {
-    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
-        let lookahead = input.lookahead1();
-        let span = input.cursor().token_stream().span();
+impl<Inner: MyParse<Inner>> MyParse<Html<Inner>> for ParseStream<'_> {
+    fn my_parse(self) -> (Result<Html<Inner>, ()>, Vec<Diagnostic>) {
+        let lookahead = self.lookahead1();
+        let span = self.cursor().token_stream().span();
         if lookahead.peek(LitStr) {
-            Ok(Self::Literal(input.parse()?))
+            Ok(Self::Literal(self.parse()?))
         } else if lookahead.peek(Token![if]) {
-            Ok(Self::If(input.parse().map_err(|err| {
+            Ok(Self::If(self.parse().map_err(|err| {
                 Diagnostic::from(err).span_note(span, "while parsing if")
             })?))
         } else if lookahead.peek(Token![for]) {
-            Ok(Self::For(input.parse().map_err(|err| {
+            Ok(Self::For(self.parse().map_err(|err| {
                 Diagnostic::from(err).span_note(span, "while parsing for")
             })?))
         } else if lookahead.peek(Brace) {
-            Ok(Self::Computed(input.parse().map_err(|err| {
+            Ok(Self::Computed(self.parse().map_err(|err| {
                 Diagnostic::from(err).span_note(span, "while parsing computed")
             })?))
         } else if lookahead.peek(Token![<]) {
-            Ok(Self::Element(input.parse().map_err(|err| {
+            Ok(Self::Element(self.parse().map_err(|err| {
                 Diagnostic::from(err).span_note(span, "while parsing element")
             })?))
         } else {
@@ -109,7 +121,7 @@ pub struct HtmlIf<Inner> {
 }
 
 impl<Inner: MyParse> MyParse for HtmlIf<Inner> {
-    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn my_parse(input: syn::parse::ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>) {
         Ok(HtmlIf {
             if_token: input.parse()?,
             cond: {
@@ -156,7 +168,7 @@ pub struct HtmlForLoop<Inner> {
 }
 
 impl<Inner: MyParse> MyParse for HtmlForLoop<Inner> {
-    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn my_parse(input: syn::parse::ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>) {
         let for_token: Token![for] = input.parse()?;
 
         let pat = Pat::parse_multi_with_leading_vert(input)?;
@@ -182,7 +194,7 @@ pub struct HtmlAttributeValue {
 }
 
 impl MyParse for HtmlAttributeValue {
-    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn my_parse(input: syn::parse::ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>) {
         let span = input.cursor().token_stream().span();
 
         let mut children = Vec::new();
@@ -204,7 +216,7 @@ pub struct HtmlAttribute {
 }
 
 impl MyParse for HtmlAttribute {
-    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn my_parse(input: syn::parse::ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>) {
         Ok(Self {
             key: input.parse()?,
             value: {
@@ -249,7 +261,7 @@ impl Display for HtmlTag {
 }
 
 impl MyParse for HtmlTag {
-    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn my_parse(input: syn::parse::ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>) {
         Ok(Self {
             exclamation: input.parse()?,
             name: input.parse()?,
@@ -266,7 +278,7 @@ pub struct HtmlElement {
 }
 
 impl MyParse for HtmlElement {
-    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn my_parse(input: syn::parse::ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>) {
         let open_start = input.parse()?;
         let open_tag_name: HtmlTag = input.parse()?;
         let open_tag_name_text = open_tag_name.to_string();
