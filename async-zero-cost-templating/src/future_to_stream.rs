@@ -1,10 +1,11 @@
 use core::cell::Cell;
 use std::{pin::Pin, task::Poll};
 
+use bytes::Bytes;
 use futures_core::{Future, Stream};
 use pin_project::pin_project;
 
-pub type T = usize;
+pub type T = Bytes;
 
 thread_local! {
     static VALUE: Cell<Option<T>> = const { Cell::new(None) };
