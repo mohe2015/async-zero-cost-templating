@@ -1,5 +1,4 @@
 use async_zero_cost_templating_proc_macro2::{codegen::codegen, parse::HtmlChildren};
-use quote::quote;
 use syn::parse_macro_input;
 
 #[proc_macro]

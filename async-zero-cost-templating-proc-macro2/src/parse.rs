@@ -1,5 +1,11 @@
+use std::fmt::Display;
+
 use proc_macro2_diagnostics::Diagnostic;
-use syn::{braced, parse::Parse, token::Brace, Block, Expr, Ident, LitStr, Pat, Token};
+use syn::{
+    braced, parse::Parse, spanned::Spanned, token::Brace, Block, Expr, Ident, LitStr, Pat, Token,
+};
+
+// https://docs.rs/syn/latest/syn/spanned/index.html sounds like nightly should produce much better spans
 
 pub struct HtmlChildren {
     pub children: Vec<Html<HtmlChildren>>,
@@ -58,7 +64,7 @@ impl<Inner: Parse> Parse for Html<Inner> {
     }
 }
 
-pub struct HtmlIf<Inner: Parse> {
+pub struct HtmlIf<Inner> {
     pub if_token: Token![if],
     pub cond: Expr,
     pub then_branch: (Brace, Inner),
@@ -104,7 +110,7 @@ impl<Inner: Parse> Parse for HtmlIf<Inner> {
     }
 }
 
-pub struct HtmlForLoop<Inner: Parse> {
+pub struct HtmlForLoop<Inner> {
     pub for_token: Token![for],
     pub pat: Pat,
     pub in_token: Token![in],
@@ -178,6 +184,31 @@ impl Parse for HtmlAttribute {
 pub struct HtmlTag {
     pub exclamation: Option<Token![!]>,
     pub name: Ident,
+}
+
+impl HtmlTag {
+    pub fn span(&self) -> proc_macro2::Span {
+        if let Some(exclamation) = self.exclamation {
+            exclamation.span().join(self.name.span()).unwrap()
+        } else {
+            self.name.span()
+        }
+    }
+}
+
+impl Display for HtmlTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}",
+            if self.exclamation.is_some() {
+                "!".to_owned()
+            } else {
+                String::new()
+            },
+            self.name.to_string()
+        )
+    }
 }
 
 impl Parse for HtmlTag {
