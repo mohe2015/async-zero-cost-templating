@@ -125,28 +125,29 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
             .into_iter()
             .fold((Vec::new(), None), |(mut acc, current), next| {
                 match (current, next) {
-                    (None, next) => (acc, Some(next)),
-                    (
-                        Some(Intermediate::Literal(lit1, span1)),
-                        Intermediate::Literal(lit2, span2),
-                    ) => (
-                        acc,
-                        Some(Intermediate::Literal(
-                            lit1 + &lit2,
-                            span1.join(span2).unwrap(),
-                        )),
-                    ),
-                    (Some(other), next) => (
+                    (None, Intermediate::Literal(lit, span)) => (acc, Some((lit, span))),
+                    (Some((lit1, span1)), Intermediate::Literal(lit2, span2)) => {
+                        (acc, Some((lit1 + &lit2, span1.join(span2).unwrap())))
+                    }
+                    (Some((lit, span)), next) => (
                         {
-                            acc.push(other);
+                            acc.push(Intermediate::Literal(lit, span));
+                            acc.push(next);
                             acc
                         },
-                        Some(next),
+                        None,
+                    ),
+                    (None, next) => (
+                        {
+                            acc.push(next);
+                            acc
+                        },
+                        None,
                     ),
                 }
             });
-    if let Some(current) = current {
-        acc.push(current);
+    if let Some((lit, span)) = current {
+        acc.push(Intermediate::Literal(lit, span));
     }
     acc
 }
