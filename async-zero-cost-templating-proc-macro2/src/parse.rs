@@ -3,12 +3,33 @@ use std::fmt::Display;
 use proc_macro2::TokenTree;
 use proc_macro2_diagnostics::Diagnostic;
 use syn::{
-    braced, parse::{Parse, ParseStream}, spanned::Spanned, token::Brace, Block, Expr, Ident, LitStr, Pat, Token,
+    braced,
+    parse::{Parse, ParseStream},
+    spanned::Spanned,
+    token::Brace,
+    Block, Expr, Ident, LitStr, Pat, Token,
 };
 
 trait MyParse {
     /// We don't want to always abort parsing on failures to get better IDE support and also show more errors directly
-    fn parse(input: ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> where Self: Sized;
+    fn parse(input: ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>)
+    where
+        Self: Sized;
+}
+
+trait MyParseExt {
+    fn diagnostic_context(self, fun: impl Fn(Diagnostic) -> Diagnostic) -> Self
+    where
+        Self: Sized;
+}
+
+impl<T> MyParseExt for (Result<T, ()>, Vec<Diagnostic>) {
+    fn diagnostic_context(self, fun: impl Fn(Diagnostic) -> Diagnostic) -> Self
+    where
+        Self: Sized,
+    {
+        (self.0, self.1.into_iter().map(fun).collect())
+    }
 }
 
 // https://docs.rs/syn/latest/syn/spanned/index.html sounds like nightly should produce much better spans
@@ -22,26 +43,25 @@ pub struct HtmlChildren {
 }
 
 impl MyParse for HtmlChildren {
-    fn parse(input: syn::parse::ParseStream) -> Result<(Self, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn parse(input: syn::parse::ParseStream) -> (Result<Self, ()>, Vec<Diagnostic>) {
         let span = input.cursor().token_stream().span();
+
+        let mut diagnostics = Vec::new();
 
         let mut children = Vec::new();
         while !input.is_empty() && !(input.peek(Token![<]) && input.peek2(Token![/])) {
             let child_start_span = input.cursor().token_stream().span();
-            MyParse::parse(input, diagnostics);
-            // we want to add context so we need to know which diagnostics got added
-            let child = .map_err(|err| {
-                Diagnostic::from(err)
+            let (child, new_diagnostics) = MyParse::parse(input).diagnostic_context(|diagnostic| {
+                diagnostic
                     .span_note(child_start_span, "while parsing child")
                     .span_note(span, "while parsing children")
             });
-            match child {
-                Ok(child) => children.push(child),
-             Err(error) => error.emit_as_expr_tokens();
-
+            diagnostics.extend(new_diagnostics);
+            if let Ok(child) = child {
+                children.push(child);
             }
         }
-        Ok(Self { children })
+        (Ok(Self { children }), diagnostics)
     }
 }
 
