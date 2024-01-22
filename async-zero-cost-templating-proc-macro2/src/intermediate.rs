@@ -55,7 +55,6 @@ pub fn to_intermediate(input: HtmlChildren) -> Vec<Intermediate> {
                 attributes,
                 open_end,
                 children,
-                close,
             }) => Vec::from_iter(
                 [
                     Intermediate::Literal("<".to_owned(), open_start.span),
@@ -64,16 +63,15 @@ pub fn to_intermediate(input: HtmlChildren) -> Vec<Intermediate> {
                 .into_iter()
                 .chain(attributes.into_iter().flat_map(attribute_to_intermediate))
                 .chain([Intermediate::Literal("<".to_owned(), open_end.span)])
-                .chain(to_intermediate(children))
                 .chain(
-                    close
-                        .map(|close| {
-                            [
-                                Intermediate::Literal("<".to_owned(), close.0.span()),
-                                Intermediate::Literal("/".to_owned(), close.1.span()),
-                                Intermediate::Literal(close.2.to_string(), close.2.span()),
-                                Intermediate::Literal(">".to_owned(), close.3.span()),
-                            ]
+                    children
+                        .map(|children| {
+                            to_intermediate(children.0).into_iter().chain([
+                                Intermediate::Literal("<".to_owned(), children.1.span()),
+                                Intermediate::Literal("/".to_owned(), children.2.span()),
+                                Intermediate::Literal(children.3.to_string(), children.3.span()),
+                                Intermediate::Literal(">".to_owned(), children.4.span()),
+                            ])
                         })
                         .into_iter()
                         .flatten(),

@@ -225,15 +225,17 @@ pub struct HtmlElement {
     pub open_tag_name: HtmlTag,
     pub attributes: Vec<HtmlAttribute>,
     pub open_end: Token![>],
-    pub children: HtmlChildren,
-    pub close: Option<(Token![<], Token![/], HtmlTag, Token![>])>,
+    pub children: Option<(HtmlChildren, Token![<], Token![/], HtmlTag, Token![>])>,
 }
 
 impl Parse for HtmlElement {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let open_start = input.parse()?;
+        let open_tag_name: HtmlTag = input.parse()?;
+        let open_tag_name_text = open_tag_name.to_string();
         Ok(Self {
-            open_start: input.parse()?,
-            open_tag_name: input.parse()?,
+            open_start,
+            open_tag_name,
             attributes: {
                 let mut attributes = Vec::new();
                 while !input.peek(Token![>]) {
@@ -246,10 +248,10 @@ impl Parse for HtmlElement {
                 attributes
             },
             open_end: input.parse()?,
-            children: input.parse()?,
-            close: {
-                if input.peek(Token![<]) {
+            children: {
+                if open_tag_name_text != "!doctype" {
                     Some((
+                        input.parse()?,
                         input.parse()?,
                         input.parse()?,
                         input.parse()?,
