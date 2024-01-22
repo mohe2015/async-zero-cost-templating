@@ -1,5 +1,5 @@
 use proc_macro2::Span;
-use syn::{spanned::Spanned, token::Brace, Block, Expr, Pat, Token};
+use syn::{spanned::Spanned, Block};
 
 use crate::parse::{HtmlAttribute, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf};
 
@@ -10,7 +10,7 @@ pub enum Intermediate {
     For(HtmlForLoop<Vec<Intermediate>>),
 }
 
-pub fn attribute_to_intermediate(input: HtmlAttribute) -> Vec<Intermediate> {
+pub fn attribute_to_intermediate(_input: HtmlAttribute) -> Vec<Intermediate> {
     todo!()
 }
 

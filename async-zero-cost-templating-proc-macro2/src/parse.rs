@@ -13,11 +13,11 @@ pub struct HtmlChildren {
 
 impl Parse for HtmlChildren {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let span = input.span();
+        let span = input.cursor().token_stream().span();
 
         let mut children = Vec::new();
         while !input.is_empty() && !(input.peek(Token![<]) && input.peek2(Token![/])) {
-            let child_start_span = input.span();
+            let child_start_span = input.cursor().token_stream().span();
             children.push(input.parse().map_err(|err| {
                 Diagnostic::from(err)
                     .span_note(child_start_span, "while parsing child")
@@ -39,7 +39,7 @@ pub enum Html<Inner: Parse> {
 impl<Inner: Parse> Parse for Html<Inner> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
-        let span = input.span();
+        let span = input.cursor().token_stream().span();
         if lookahead.peek(LitStr) {
             Ok(Self::Literal(input.parse()?))
         } else if lookahead.peek(Token![if]) {
@@ -76,7 +76,7 @@ impl<Inner: Parse> Parse for HtmlIf<Inner> {
         Ok(HtmlIf {
             if_token: input.parse()?,
             cond: {
-                let span = input.span();
+                let span = input.cursor().token_stream().span();
                 input.call(Expr::parse_without_eager_brace).map_err(|err| {
                     Diagnostic::from(err).span_note(span, "while parsing if condition")
                 })?
@@ -84,7 +84,7 @@ impl<Inner: Parse> Parse for HtmlIf<Inner> {
             then_branch: {
                 let content;
                 (braced!(content in input), {
-                    let then_span = content.span();
+                    let then_span = content.cursor().token_stream().span();
                     content.parse().map_err(|err| {
                         Diagnostic::from(err).span_note(then_span, "while parsing then branch")
                     })?
@@ -95,7 +95,7 @@ impl<Inner: Parse> Parse for HtmlIf<Inner> {
                     Some({
                         let content;
                         (input.parse()?, braced!(content in input), {
-                            let else_span = content.span();
+                            let else_span = content.cursor().token_stream().span();
                             content.parse().map_err(|err| {
                                 Diagnostic::from(err)
                                     .span_note(else_span, "while parsing else branch")
@@ -146,11 +146,11 @@ pub struct HtmlAttributeValue {
 
 impl Parse for HtmlAttributeValue {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let span = input.span();
+        let span = input.cursor().token_stream().span();
 
         let mut children = Vec::new();
         while !input.is_empty() && !(input.peek(Token![<]) && input.peek2(Token![/])) {
-            let child_start_span = input.span();
+            let child_start_span = input.cursor().token_stream().span();
             children.push(input.parse().map_err(|err| {
                 Diagnostic::from(err)
                     .span_note(child_start_span, "while parsing attribute value part")
@@ -237,7 +237,7 @@ impl Parse for HtmlElement {
             attributes: {
                 let mut attributes = Vec::new();
                 while !input.peek(Token![>]) {
-                    let attribute_start_span = input.span();
+                    let attribute_start_span = input.cursor().token_stream().span();
                     attributes.push(input.parse().map_err(|err| {
                         Diagnostic::from(err)
                             .span_note(attribute_start_span, "while parsing attribute")
