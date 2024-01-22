@@ -71,7 +71,9 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
         }) => {
             let inner = codegen(body.1);
             quote! {
-                #for_token #pat #in_token #expr {
+                let __stream = #expr;
+                // TODO FIXME import from our crate to ensure it exists, maybe also just replace our for with the while let
+                while let Some(#pat) = ::futures_util::StreamExt::next(__stream).await {
                     #inner
                 }
             }
