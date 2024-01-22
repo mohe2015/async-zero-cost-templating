@@ -1,13 +1,25 @@
 use proc_macro2::Span;
 use syn::{spanned::Spanned, Block};
 
-use crate::parse::{Html, HtmlAttribute, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf};
+use crate::parse::{
+    Html, HtmlAttribute, HtmlAttributeValue, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf,
+};
 
 pub enum Intermediate {
     Literal(String, Span),
     Computed(Block),
     If(HtmlIf<Vec<Intermediate>>),
     For(HtmlForLoop<Vec<Intermediate>>),
+}
+
+impl From<HtmlAttributeValue> for Vec<Intermediate> {
+    fn from(value: HtmlAttributeValue) -> Self {
+        value
+            .children
+            .into_iter()
+            .flat_map(Vec::<Intermediate>::from)
+            .collect()
+    }
 }
 
 impl From<HtmlAttribute> for Vec<Intermediate> {
@@ -105,4 +117,36 @@ impl From<HtmlChildren> for Vec<Intermediate> {
             .flat_map(Vec::<Intermediate>::from)
             .collect()
     }
+}
+
+pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
+    let (mut acc, current) =
+        input
+            .into_iter()
+            .fold((Vec::new(), None), |(mut acc, current), next| {
+                match (current, next) {
+                    (None, next) => (acc, Some(next)),
+                    (
+                        Some(Intermediate::Literal(lit1, span1)),
+                        Intermediate::Literal(lit2, span2),
+                    ) => (
+                        acc,
+                        Some(Intermediate::Literal(
+                            lit1 + &lit2,
+                            span1.join(span2).unwrap(),
+                        )),
+                    ),
+                    (Some(other), next) => (
+                        {
+                            acc.push(other);
+                            acc
+                        },
+                        Some(next),
+                    ),
+                }
+            });
+    if let Some(current) = current {
+        acc.push(current);
+    }
+    acc
 }
