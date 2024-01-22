@@ -28,7 +28,7 @@ impl Parse for HtmlChildren {
     }
 }
 
-pub enum Html<Inner: Parse> {
+pub enum Html<Inner> {
     Literal(LitStr),
     Computed(Block),
     If(HtmlIf<Inner>),

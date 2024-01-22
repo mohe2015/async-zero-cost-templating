@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::{spanned::Spanned, Block};
 
-use crate::parse::{HtmlAttribute, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf};
+use crate::parse::{Html, HtmlAttribute, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf};
 
 pub enum Intermediate {
     Literal(String, Span),
@@ -10,15 +10,32 @@ pub enum Intermediate {
     For(HtmlForLoop<Vec<Intermediate>>),
 }
 
-pub fn attribute_to_intermediate(_input: HtmlAttribute) -> Vec<Intermediate> {
-    todo!()
+impl From<HtmlAttribute> for Vec<Intermediate> {
+    fn from(value: HtmlAttribute) -> Self {
+        Vec::from_iter(
+            [Intermediate::Literal(
+                value.key.to_string(),
+                value.key.span(),
+            )]
+            .into_iter()
+            .chain(
+                value
+                    .value
+                    .map(|value| {
+                        [Intermediate::Literal("=".to_owned(), value.0.span())]
+                            .into_iter()
+                            .chain(Vec::<Intermediate>::from(value.1))
+                    })
+                    .into_iter()
+                    .flatten(),
+            ),
+        )
+    }
 }
 
-pub fn to_intermediate(input: HtmlChildren) -> Vec<Intermediate> {
-    input
-        .children
-        .into_iter()
-        .flat_map(|child| match child {
+impl<T: Into<Vec<Intermediate>>> From<Html<T>> for Vec<Intermediate> {
+    fn from(value: Html<T>) -> Self {
+        match value {
             crate::parse::Html::Literal(literal) => {
                 Vec::from([Intermediate::Literal(literal.value(), literal.span())])
             }
@@ -31,10 +48,9 @@ pub fn to_intermediate(input: HtmlChildren) -> Vec<Intermediate> {
             }) => Vec::from([Intermediate::If(HtmlIf {
                 if_token,
                 cond,
-                then_branch: (then_branch.0, to_intermediate(then_branch.1)),
-                else_branch: else_branch.map(|else_branch| {
-                    (else_branch.0, else_branch.1, to_intermediate(else_branch.2))
-                }),
+                then_branch: (then_branch.0, then_branch.1.into()),
+                else_branch: else_branch
+                    .map(|else_branch| (else_branch.0, else_branch.1, else_branch.2.into())),
             })]),
             crate::parse::Html::For(HtmlForLoop {
                 for_token,
@@ -47,7 +63,7 @@ pub fn to_intermediate(input: HtmlChildren) -> Vec<Intermediate> {
                 pat,
                 in_token,
                 expr,
-                body: (body.0, to_intermediate(body.1)),
+                body: (body.0, body.1.into()),
             })]),
             crate::parse::Html::Element(HtmlElement {
                 open_start,
@@ -61,12 +77,12 @@ pub fn to_intermediate(input: HtmlChildren) -> Vec<Intermediate> {
                     Intermediate::Literal(open_tag_name.to_string(), open_tag_name.span()),
                 ]
                 .into_iter()
-                .chain(attributes.into_iter().flat_map(attribute_to_intermediate))
+                .chain(attributes.into_iter().flat_map(Vec::<Intermediate>::from))
                 .chain([Intermediate::Literal("<".to_owned(), open_end.span)])
                 .chain(
                     children
                         .map(|children| {
-                            to_intermediate(children.0).into_iter().chain([
+                            Vec::<Intermediate>::from(children.0).into_iter().chain([
                                 Intermediate::Literal("<".to_owned(), children.1.span()),
                                 Intermediate::Literal("/".to_owned(), children.2.span()),
                                 Intermediate::Literal(children.3.to_string(), children.3.span()),
@@ -77,6 +93,16 @@ pub fn to_intermediate(input: HtmlChildren) -> Vec<Intermediate> {
                         .flatten(),
                 ),
             ),
-        })
-        .collect()
+        }
+    }
+}
+
+impl From<HtmlChildren> for Vec<Intermediate> {
+    fn from(value: HtmlChildren) -> Self {
+        value
+            .children
+            .into_iter()
+            .flat_map(Vec::<Intermediate>::from)
+            .collect()
+    }
 }
