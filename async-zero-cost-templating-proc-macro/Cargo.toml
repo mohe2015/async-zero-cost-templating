@@ -12,4 +12,3 @@ proc-macro = true
 async-zero-cost-templating-proc-macro2 = { default-features = false, path = "../async-zero-cost-templating-proc-macro2" }
 quote                                  = { default-features = false, version = "1.0" }
 syn                                    = { default-features = false, version = "2.0", features = ["parsing"] }
-trybuild                               = { default-features = false, version = "1.0" }

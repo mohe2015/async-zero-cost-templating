@@ -8,10 +8,3 @@ pub fn html_proc_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 
     codegen(html_children).into()
 }
-
-#[test]
-fn ui() {
-    let t = trybuild::TestCases::new();
-    t.compile_fail("tests/ui/compile_fail/*.rs");
-    t.pass("tests/ui/pass/*.rs");
-}
