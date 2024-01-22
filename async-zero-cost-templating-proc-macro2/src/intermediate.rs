@@ -1,13 +1,17 @@
 use proc_macro2::Span;
-use syn::{token::Brace, Block, Expr, Pat, Token};
+use syn::{spanned::Spanned, token::Brace, Block, Expr, Pat, Token};
 
-use crate::parse::{HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf};
+use crate::parse::{HtmlAttribute, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf};
 
 pub enum Intermediate {
     Literal(String, Span),
     Computed(Block),
     If(HtmlIf<Vec<Intermediate>>),
     For(HtmlForLoop<Vec<Intermediate>>),
+}
+
+pub fn attribute_to_intermediate(input: HtmlAttribute) -> Vec<Intermediate> {
+    todo!()
 }
 
 pub fn to_intermediate(input: HtmlChildren) -> Vec<Intermediate> {
@@ -52,10 +56,29 @@ pub fn to_intermediate(input: HtmlChildren) -> Vec<Intermediate> {
                 open_end,
                 children,
                 close,
-            }) => Vec::from([
-                Intermediate::Literal("<".to_owned(), open_start.span),
-                Intermediate::Literal(open_tag_name.to_string(), open_tag_name.span()),
-            ]),
+            }) => Vec::from_iter(
+                [
+                    Intermediate::Literal("<".to_owned(), open_start.span),
+                    Intermediate::Literal(open_tag_name.to_string(), open_tag_name.span()),
+                ]
+                .into_iter()
+                .chain(attributes.into_iter().flat_map(attribute_to_intermediate))
+                .chain([Intermediate::Literal("<".to_owned(), open_end.span)])
+                .chain(to_intermediate(children))
+                .chain(
+                    close
+                        .map(|close| {
+                            [
+                                Intermediate::Literal("<".to_owned(), close.0.span()),
+                                Intermediate::Literal("/".to_owned(), close.1.span()),
+                                Intermediate::Literal(close.2.to_string(), close.2.span()),
+                                Intermediate::Literal(">".to_owned(), close.3.span()),
+                            ]
+                        })
+                        .into_iter()
+                        .flatten(),
+                ),
+            ),
         })
         .collect()
 }
