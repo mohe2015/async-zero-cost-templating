@@ -1,5 +1,5 @@
 use async_zero_cost_templating_proc_macro2::{
-    codegen::codegen,
+    codegen::{codegen, top_level},
     intermediate::{simplify, Intermediate},
     parse::HtmlChildren,
 };
@@ -11,5 +11,5 @@ pub fn html_proc_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
     let intermediate = Vec::<Intermediate>::from(html_children);
     let intermediate = simplify(intermediate);
 
-    codegen(intermediate).into()
+    top_level(intermediate).into()
 }
