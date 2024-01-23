@@ -326,7 +326,6 @@ where
         };
 
         let loop_span = self.cursor().token_stream().span();
-        let content;
         let mut content;
         if let Ok(brace_token) = (|| Ok(braced!(content in self)))() {
             let result;
@@ -342,7 +341,7 @@ where
                     pat,
                     in_token,
                     expr,
-                    body: (brace_token, content.parse()?),
+                    body: (brace_token, result),
                 },
                 diagnostics,
             ))
