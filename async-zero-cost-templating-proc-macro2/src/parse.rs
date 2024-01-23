@@ -113,9 +113,7 @@ where
         let span = self.cursor().token_stream().span();
         if lookahead.peek(LitStr) {
             Ok((
-                Html::<Inner>::Literal(
-                    MyParse::<LitStr>::my_parse(self)?.append_diagnostics(&mut diagnostics),
-                ),
+                Html::<Inner>::Literal(MyParse::<LitStr>::my_parse(self, &mut diagnostics)?),
                 diagnostics,
             ))
         } else if lookahead.peek(Token![if]) {
