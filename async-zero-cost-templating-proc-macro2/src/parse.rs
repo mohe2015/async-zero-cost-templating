@@ -168,40 +168,49 @@ where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
     fn inner_my_parse(self) -> Result<(HtmlIf<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
-        Ok(HtmlIf {
-            if_token: self.parse()?,
-            cond: {
-                let span = self.cursor().token_stream().span();
-                self.call(Expr::parse_without_eager_brace).map_err(|err| {
-                    Diagnostic::from(err).span_note(span, "while parsing if condition")
-                })?
-            },
-            then_branch: {
-                let content;
-                (braced!(content in self), {
-                    let then_span = content.cursor().token_stream().span();
-                    content.parse().map_err(|err| {
-                        Diagnostic::from(err).span_note(then_span, "while parsing then branch")
+        let diagnostics = Vec::new();
+        Ok((
+            HtmlIf {
+                if_token: {
+                    let result;
+                    (result, diagnostics) =
+                        MyParse::<Token![if]>::my_parse(self, identity, identity, diagnostics)?;
+                    result
+                },
+                cond: {
+                    let span = self.cursor().token_stream().span();
+                    self.call(Expr::parse_without_eager_brace).map_err(|err| {
+                        Diagnostic::from(err).span_note(span, "while parsing if condition")
                     })?
-                })
-            },
-            else_branch: {
-                if self.peek(Token![else]) {
-                    Some({
-                        let content;
-                        (self.parse()?, braced!(content in self), {
-                            let else_span = content.cursor().token_stream().span();
-                            content.parse().map_err(|err| {
-                                Diagnostic::from(err)
-                                    .span_note(else_span, "while parsing else branch")
-                            })?
-                        })
+                },
+                then_branch: {
+                    let content;
+                    (braced!(content in self), {
+                        let then_span = content.cursor().token_stream().span();
+                        content.parse().map_err(|err| {
+                            Diagnostic::from(err).span_note(then_span, "while parsing then branch")
+                        })?
                     })
-                } else {
-                    None
-                }
+                },
+                else_branch: {
+                    if self.peek(Token![else]) {
+                        Some({
+                            let content;
+                            (self.parse()?, braced!(content in self), {
+                                let else_span = content.cursor().token_stream().span();
+                                content.parse().map_err(|err| {
+                                    Diagnostic::from(err)
+                                        .span_note(else_span, "while parsing else branch")
+                                })?
+                            })
+                        })
+                    } else {
+                        None
+                    }
+                },
             },
-        })
+            diagnostics,
+        ))
     }
 }
 
