@@ -394,16 +394,39 @@ pub struct HtmlAttribute {
 
 impl MyParse<HtmlAttribute> for ParseStream<'_> {
     fn inner_my_parse(self) -> Result<(HtmlAttribute, Vec<Diagnostic>), Vec<Diagnostic>> {
-        Ok(HtmlAttribute {
-            key: self.parse()?,
-            value: {
-                if self.peek(Token![=]) {
-                    Some((self.parse()?, self.parse()?))
-                } else {
-                    None
-                }
+        let mut diagnostics = Vec::new();
+
+        Ok((
+            HtmlAttribute {
+                key: {
+                    let value;
+                    (value, diagnostics) =
+                        MyParse::my_parse(self, identity, identity, diagnostics)?;
+                    value
+                },
+                value: {
+                    if self.peek(Token![=]) {
+                        Some((
+                            {
+                                let value;
+                                (value, diagnostics) =
+                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
+                                value
+                            },
+                            {
+                                let value;
+                                (value, diagnostics) =
+                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
+                                value
+                            },
+                        ))
+                    } else {
+                        None
+                    }
+                },
             },
-        })
+            diagnostics,
+        ))
     }
 }
 
@@ -439,10 +462,25 @@ impl Display for HtmlTag {
 
 impl MyParse<HtmlTag> for ParseStream<'_> {
     fn inner_my_parse(self) -> Result<(HtmlTag, Vec<Diagnostic>), Vec<Diagnostic>> {
-        Ok(HtmlTag {
-            exclamation: self.parse()?,
-            name: self.parse()?,
-        })
+        let mut diagnostics = Vec::new();
+
+        Ok((
+            HtmlTag {
+                exclamation: {
+                    let value;
+                    (value, diagnostics) =
+                        MyParse::my_parse(self, identity, identity, diagnostics)?;
+                    value
+                },
+                name: {
+                    let value;
+                    (value, diagnostics) =
+                        MyParse::my_parse(self, identity, identity, diagnostics)?;
+                    value
+                },
+            },
+            diagnostics,
+        ))
     }
 }
 
@@ -456,10 +494,18 @@ pub struct HtmlElement {
 
 impl MyParse<HtmlElement> for ParseStream<'_> {
     fn inner_my_parse(self) -> Result<(HtmlElement, Vec<Diagnostic>), Vec<Diagnostic>> {
-        let diagnostics = Vec::new();
+        let mut diagnostics = Vec::new();
 
-        let open_start = self.my_parse()?;
-        let open_tag_name: HtmlTag = self.parse()?;
+        let open_start = {
+            let value;
+            (value, diagnostics) = MyParse::my_parse(self, identity, identity, diagnostics)?;
+            value
+        };
+        let open_tag_name: HtmlTag = {
+            let value;
+            (value, diagnostics) = MyParse::my_parse(self, identity, identity, diagnostics)?;
+            value
+        };
         let open_tag_name_text = open_tag_name.to_string();
         Ok((
             HtmlElement {
@@ -469,22 +515,61 @@ impl MyParse<HtmlElement> for ParseStream<'_> {
                     let mut attributes = Vec::new();
                     while !self.peek(Token![>]) {
                         let attribute_start_span = self.cursor().token_stream().span();
-                        attributes.push(self.parse().map_err(|err| {
-                            Diagnostic::from(err)
-                                .span_note(attribute_start_span, "while parsing attribute")
-                        })?);
+                        attributes.push({
+                            let value;
+                            (value, diagnostics) = MyParse::my_parse(
+                                self,
+                                identity,
+                                |diagnostic| {
+                                    diagnostic
+                                        .span_note(attribute_start_span, "while parsing attribute")
+                                },
+                                diagnostics,
+                            )?;
+                            value
+                        });
                     }
                     attributes
                 },
-                open_end: self.parse()?,
+                open_end: {
+                    let value;
+                    (value, diagnostics) =
+                        MyParse::my_parse(self, identity, identity, diagnostics)?;
+                    value
+                },
                 children: {
                     if open_tag_name_text != "!doctype" {
                         Some((
-                            self.my_parse()?,
-                            self.my_parse()?,
-                            self.my_parse()?,
-                            self.my_parse()?,
-                            self.my_parse()?,
+                            {
+                                let value;
+                                (value, diagnostics) =
+                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
+                                value
+                            },
+                            {
+                                let value;
+                                (value, diagnostics) =
+                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
+                                value
+                            },
+                            {
+                                let value;
+                                (value, diagnostics) =
+                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
+                                value
+                            },
+                            {
+                                let value;
+                                (value, diagnostics) =
+                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
+                                value
+                            },
+                            {
+                                let value;
+                                (value, diagnostics) =
+                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
+                                value
+                            },
                         ))
                     } else {
                         None
