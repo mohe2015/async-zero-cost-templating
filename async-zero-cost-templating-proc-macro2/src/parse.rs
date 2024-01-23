@@ -360,16 +360,30 @@ impl MyParse<HtmlAttributeValue> for ParseStream<'_> {
     fn inner_my_parse(self) -> Result<(HtmlAttributeValue, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = self.cursor().token_stream().span();
 
+        let mut diagnostics = Vec::new();
+
         let mut children = Vec::new();
+        // TODO FIXME this impl is comletely broken
         while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
             let child_start_span = self.cursor().token_stream().span();
-            children.push(self.parse().map_err(|err| {
-                Diagnostic::from(err)
-                    .span_note(child_start_span, "while parsing attribute value part")
-                    .span_note(span, "while parsing attribute value")
-            })?);
+            let result;
+            (result, diagnostics) = transpose(self.my_parse(
+                identity,
+                |diagnostic| {
+                    diagnostic
+                        .span_note(child_start_span, "while parsing attribute value part")
+                        .span_note(span, "while parsing attribute value")
+                },
+                diagnostics,
+            ));
+            match result {
+                Ok(child) => {
+                    children.push(child);
+                }
+                Err(err) => {}
+            }
         }
-        Ok(HtmlAttributeValue { children })
+        Ok((HtmlAttributeValue { children }, diagnostics))
     }
 }
 
