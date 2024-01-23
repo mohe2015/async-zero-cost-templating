@@ -17,7 +17,7 @@ trait MyParse<T> {
         self,
         t_mapper: impl Fn(T) -> Q,
         fun: impl Fn(Diagnostic) -> Diagnostic,
-        diagnostics: Vec<Diagnostic>,
+        mut diagnostics: Vec<Diagnostic>,
     ) -> Result<(Q, Vec<Diagnostic>), Vec<Diagnostic>>
     where
         Self: Sized,
@@ -139,8 +139,10 @@ where
             )?)
         } else if lookahead.peek(Brace) {
             let then_span = self.cursor().token_stream().span();
-            let mut content;
-            if let Ok(brace) = (|| Ok(braced!(content in self)))() {
+            if let Ok((brace, content)) = (|| {
+                let content;
+                Ok((braced!(content in self), content))
+            })() {
                 Ok((
                     Html::<Inner>::Computed((brace, content.cursor().token_stream())),
                     diagnostics,
@@ -210,8 +212,10 @@ where
                 },
                 then_branch: {
                     let then_span = self.cursor().token_stream().span();
-                    let mut content;
-                    if let Ok(brace) = (|| Ok(braced!(content in self)))() {
+                    if let Ok((brace, content)) = (|| {
+                        let content;
+                        Ok((braced!(content in self), content))
+                    })() {
                         let result;
                         (result, diagnostics) = MyParse::<Inner>::my_parse(
                             &content,
@@ -238,8 +242,10 @@ where
                             diagnostics,
                         )?;
 
-                        let mut content;
-                        if let Ok(brace) = (|| Ok(braced!(content in self)))() {
+                        if let Ok((brace, content)) = (|| {
+                            let content;
+                            Ok((braced!(content in self), content))
+                        })() {
                             let result;
                             (result, diagnostics) = MyParse::<Inner>::my_parse(
                                 &content,
@@ -331,8 +337,10 @@ where
         };
 
         let loop_span = self.cursor().token_stream().span();
-        let mut content;
-        if let Ok(brace_token) = (|| Ok(braced!(content in self)))() {
+        if let Ok((brace_token, content)) = (|| {
+            let content;
+            Ok((braced!(content in self), content))
+        })() {
             let result;
             (result, diagnostics) = MyParse::<Inner>::my_parse(
                 &content,
