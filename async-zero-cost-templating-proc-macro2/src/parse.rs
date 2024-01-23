@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{convert::identity, fmt::Display};
 
 use proc_macro2::TokenTree;
 use proc_macro2_diagnostics::Diagnostic;
@@ -12,17 +12,18 @@ use syn::{
 
 trait MyParse<T> {
     /// We don't want to always abort parsing on failures to get better IDE support and also show more errors directly
-    fn my_parse(
+    fn my_parse<Q>(
         self,
+        t_mapper: impl Fn(T) -> Q,
         fun: impl Fn(Diagnostic) -> Diagnostic,
         diagnostics: Vec<Diagnostic>,
-    ) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>
+    ) -> Result<(Q, Vec<Diagnostic>), Vec<Diagnostic>>
     where
         Self: Sized,
     {
         let inner = self.inner_my_parse();
         match inner {
-            Ok((value, inner_diagnostics)) => Ok((value, {
+            Ok((value, inner_diagnostics)) => Ok((t_mapper(value), {
                 diagnostics.extend(inner_diagnostics.into_iter().map(fun));
                 diagnostics
             })),
@@ -79,6 +80,7 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
             let child_start_span = self.cursor().token_stream().span();
             let result;
             (result, diagnostics) = transpose(self.my_parse(
+                identity,
                 |diagnostic| {
                     diagnostic
                         .span_note(child_start_span, "while parsing child")
@@ -114,29 +116,42 @@ where
         let lookahead = self.lookahead1();
         let span = self.cursor().token_stream().span();
         if lookahead.peek(LitStr) {
-            Ok(Html::<Inner>::Literal(MyParse::<LitStr>::my_parse(
+            Ok(MyParse::<LitStr>::my_parse(
                 self,
+                Html::<Inner>::Literal,
                 |diagnostic| diagnostic,
                 diagnostics,
-            )?))
+            )?)
         } else if lookahead.peek(Token![if]) {
-            Ok(Html::<Inner>::If(self.my_parse().diagnostic_context(
+            Ok(MyParse::<HtmlIf<Inner>>::my_parse(
+                self,
+                Html::<Inner>::If,
                 |diagnostic| diagnostic.span_note(span, "while parsing if"),
-            )?))
+                diagnostics,
+            )?)
         } else if lookahead.peek(Token![for]) {
-            Ok(Html::<Inner>::For(self.my_parse().map_err(|err| {
-                Diagnostic::from(err).span_note(span, "while parsing for")
-            })?))
+            Ok(MyParse::<HtmlForLoop<Inner>>::my_parse(
+                self,
+                Html::<Inner>::For,
+                |diagnostic| diagnostic.span_note(span, "while parsing for"),
+                diagnostics,
+            )?)
         } else if lookahead.peek(Brace) {
-            Ok(Html::<Inner>::Computed(self.my_parse().map_err(|err| {
-                Diagnostic::from(err).span_note(span, "while parsing computed")
-            })?))
+            Ok(MyParse::<TokenTree>::my_parse(
+                self,
+                Html::<Inner>::Computed,
+                |diagnostic| diagnostic.span_note(span, "while parsing computed"),
+                diagnostics,
+            )?)
         } else if lookahead.peek(Token![<]) {
-            Ok(Html::<Inner>::Element(self.my_parse().map_err(|err| {
-                Diagnostic::from(err).span_note(span, "while parsing element")
-            })?))
+            Ok(MyParse::<HtmlElement>::my_parse(
+                self,
+                Html::<Inner>::Element,
+                |diagnostics| diagnostics.span_note(span, "while parsing element"),
+                diagnostics,
+            )?)
         } else {
-            Err(lookahead.error())
+            Err(Vec::from([Diagnostic::from(lookahead.error())]))
         }
     }
 }
