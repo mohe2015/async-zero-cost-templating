@@ -203,13 +203,33 @@ where
                     }
                 },
                 then_branch: {
-                    let content;
-                    (braced!(content in self), {
-                        let then_span = content.cursor().token_stream().span();
-                        content.parse().map_err(|err| {
-                            Diagnostic::from(err).span_note(then_span, "while parsing then branch")
-                        })?
-                    })
+                    let then_span = self.cursor().token_stream().span();
+                    let result = self.step(|cursor| match cursor.token_tree() {
+                        Some((TokenTree::Group(group), next))
+                            if group.delimiter() == Delimiter::Brace =>
+                        {
+                            Ok((group, next))
+                        }
+                        _ => Err(cursor.error("no { was found after this point")),
+                    });
+                    match result {
+                        Ok(value) => (Brace(value.delim_span()), {
+                            let result;
+                            (result, diagnostics) = MyParse::<Inner>::my_parse(
+                                value,
+                                identity,
+                                |diagnostic| {
+                                    diagnostic.span_note(then_span, "while parsing then branch")
+                                },
+                                diagnostics,
+                            )?;
+                            result
+                        }),
+                        Err(error) => {
+                            diagnostics.push(error.into());
+                            return Err(diagnostics);
+                        }
+                    }
                 },
                 else_branch: {
                     if self.peek(Token![else]) {
