@@ -4,6 +4,7 @@ use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::Diagnostic;
 use syn::{
     braced,
+    buffer::Cursor,
     parse::{Parse, ParseStream},
     spanned::Spanned,
     token::Brace,
@@ -37,12 +38,12 @@ trait MyParse<T> {
     fn inner_my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>;
 }
 
-impl<T: Parse> MyParse<T> for ParseStream<'_> {
+impl<T: Parse> MyParse<T> for Cursor<'_> {
     fn inner_my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>
     where
         Self: Sized,
     {
-        let result = self.parse();
+        let result = syn::parse2(self.token_stream());
         match result {
             Ok(t) => Ok((t, Vec::new())),
             Err(err) => Err(Vec::from([Diagnostic::from(err)])),
@@ -216,7 +217,8 @@ where
                         Ok(value) => (Brace(value.delim_span()), {
                             let result;
                             (result, diagnostics) = MyParse::<Inner>::my_parse(
-                                value,
+                                // we can't use parsebuffer because here we can't get the inner part?
+                                value.stream(),
                                 identity,
                                 |diagnostic| {
                                     diagnostic.span_note(then_span, "while parsing then branch")
