@@ -12,11 +12,32 @@ use syn::{
 
 trait MyParse<T> {
     /// We don't want to always abort parsing on failures to get better IDE support and also show more errors directly
-    fn my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>;
+    fn my_parse(
+        self,
+        fun: impl Fn(Diagnostic) -> Diagnostic,
+        diagnostics: Vec<Diagnostic>,
+    ) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>
+    where
+        Self: Sized,
+    {
+        let inner = self.inner_my_parse();
+        match inner {
+            Ok((value, inner_diagnostics)) => Ok((value, {
+                diagnostics.extend(inner_diagnostics.into_iter().map(fun));
+                diagnostics
+            })),
+            Err(inner_diagnostics) => Err({
+                diagnostics.extend(inner_diagnostics.into_iter().map(fun));
+                diagnostics
+            }),
+        }
+    }
+
+    fn inner_my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>;
 }
 
 impl<T: Parse> MyParse<T> for ParseStream<'_> {
-    fn my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>
+    fn inner_my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>
     where
         Self: Sized,
     {
@@ -25,40 +46,6 @@ impl<T: Parse> MyParse<T> for ParseStream<'_> {
             Ok(t) => Ok((t, Vec::new())),
             Err(err) => Err(Vec::from([Diagnostic::from(err)])),
         }
-    }
-}
-
-trait MyParseExt {
-    fn diagnostic_context(self, fun: impl Fn(Diagnostic) -> Diagnostic) -> Self
-    where
-        Self: Sized;
-}
-
-impl<T> MyParseExt for Result<(T, Vec<Diagnostic>), Vec<Diagnostic>> {
-    fn diagnostic_context(self, fun: impl Fn(Diagnostic) -> Diagnostic) -> Self
-    where
-        Self: Sized,
-    {
-        match self {
-            Ok((t, diagnostics)) => Ok((t, diagnostics.into_iter().map(fun).collect())),
-            Err(diagnostics) => Err(diagnostics.into_iter().map(fun).collect()),
-        }
-    }
-}
-
-trait MyParseExt2<T> {
-    fn append_diagnostics(self, diagnostics: &mut Vec<Diagnostic>) -> T
-    where
-        Self: Sized;
-}
-
-impl<T> MyParseExt2<T> for (T, Vec<Diagnostic>) {
-    fn append_diagnostics(self, diagnostics: &mut Vec<Diagnostic>) -> T
-    where
-        Self: Sized,
-    {
-        diagnostics.extend(self.1);
-        self.0
     }
 }
 
@@ -73,7 +60,7 @@ pub struct HtmlChildren {
 }
 
 impl MyParse<HtmlChildren> for ParseStream<'_> {
-    fn my_parse(self) -> Result<(HtmlChildren, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(HtmlChildren, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = self.cursor().token_stream().span();
 
         let mut diagnostics = Vec::new();
@@ -114,7 +101,7 @@ impl<Inner> MyParse<Html<Inner>> for ParseStream<'_>
 where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
-    fn my_parse(self) -> Result<(Html<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(Html<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
         let diagnostics = Vec::new();
         let lookahead = self.lookahead1();
         let span = self.cursor().token_stream().span();
@@ -157,7 +144,7 @@ impl<Inner> MyParse<HtmlIf<Inner>> for ParseStream<'_>
 where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
-    fn my_parse(self) -> Result<(HtmlIf<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(HtmlIf<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
         Ok(HtmlIf {
             if_token: self.parse()?,
             cond: {
@@ -207,7 +194,7 @@ impl<Inner> MyParse<HtmlForLoop<Inner>> for ParseStream<'_>
 where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
-    fn my_parse(self) -> Result<(HtmlForLoop<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(HtmlForLoop<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
         let for_token: Token![for] = self.parse()?;
 
         let pat = Pat::parse_multi_with_leading_vert(self)?;
@@ -233,7 +220,7 @@ pub struct HtmlAttributeValue {
 }
 
 impl MyParse<HtmlAttributeValue> for ParseStream<'_> {
-    fn my_parse(self) -> Result<(HtmlAttributeValue, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(HtmlAttributeValue, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = self.cursor().token_stream().span();
 
         let mut children = Vec::new();
@@ -255,7 +242,7 @@ pub struct HtmlAttribute {
 }
 
 impl MyParse<HtmlAttribute> for ParseStream<'_> {
-    fn my_parse(self) -> Result<(HtmlAttribute, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(HtmlAttribute, Vec<Diagnostic>), Vec<Diagnostic>> {
         Ok(HtmlAttribute {
             key: self.parse()?,
             value: {
@@ -300,7 +287,7 @@ impl Display for HtmlTag {
 }
 
 impl MyParse<HtmlTag> for ParseStream<'_> {
-    fn my_parse(self) -> Result<(HtmlTag, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(HtmlTag, Vec<Diagnostic>), Vec<Diagnostic>> {
         Ok(HtmlTag {
             exclamation: self.parse()?,
             name: self.parse()?,
@@ -317,7 +304,7 @@ pub struct HtmlElement {
 }
 
 impl MyParse<HtmlElement> for ParseStream<'_> {
-    fn my_parse(self) -> Result<(HtmlElement, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(HtmlElement, Vec<Diagnostic>), Vec<Diagnostic>> {
         let diagnostics = Vec::new();
 
         let open_start = self.my_parse()?;
