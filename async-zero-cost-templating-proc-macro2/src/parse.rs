@@ -1,6 +1,6 @@
-use std::{convert::identity, fmt::Display};
+use std::{collections::btree_map::Values, convert::identity, fmt::Display};
 
-use proc_macro2::TokenTree;
+use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::Diagnostic;
 use syn::{
     braced,
@@ -158,7 +158,7 @@ where
 
 pub struct HtmlIf<Inner> {
     pub if_token: Token![if],
-    pub cond: Vec<TokenTree>,
+    pub cond: TokenStream,
     pub then_branch: (Brace, Inner),
     pub else_branch: Option<(Token![else], Brace, Inner)>,
 }
@@ -178,10 +178,29 @@ where
                     result
                 },
                 cond: {
-                    let span = self.cursor().token_stream().span();
-                    self.call(Expr::parse_without_eager_brace).map_err(|err| {
-                        Diagnostic::from(err).span_note(span, "while parsing if condition")
-                    })?
+                    let result = self.step(|cursor| {
+                        let mut rest = *cursor;
+                        let mut tokens = TokenStream::new();
+                        while let Some((tt, next)) = rest.token_tree() {
+                            tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
+                            match &tt {
+                                TokenTree::Group(group)
+                                    if group.delimiter() == Delimiter::Brace =>
+                                {
+                                    return Ok((tokens, rest));
+                                }
+                                _ => rest = next,
+                            }
+                        }
+                        Err(cursor.error("no { was found after this point"))
+                    });
+                    match result {
+                        Ok(value) => value,
+                        Err(error) => {
+                            diagnostics.push(error.into());
+                            return Err(diagnostics);
+                        }
+                    }
                 },
                 then_branch: {
                     let content;
