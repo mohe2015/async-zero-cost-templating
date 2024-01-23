@@ -169,7 +169,7 @@ where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
     fn inner_my_parse(self) -> Result<(HtmlIf<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
-        let diagnostics = Vec::new();
+        let mut diagnostics = Vec::new();
         Ok((
             HtmlIf {
                 if_token: {
@@ -205,7 +205,7 @@ where
                 },
                 then_branch: {
                     let then_span = self.cursor().token_stream().span();
-                    let content;
+                    let mut content;
                     if let Ok(brace) = (|| Ok(braced!(content in self)))() {
                         let result;
                         (result, diagnostics) = MyParse::<Inner>::my_parse(
@@ -224,16 +224,31 @@ where
                 },
                 else_branch: {
                     if self.peek(Token![else]) {
-                        Some({
-                            let content;
-                            (self.parse()?, braced!(content in self), {
-                                let else_span = content.cursor().token_stream().span();
-                                content.parse().map_err(|err| {
-                                    Diagnostic::from(err)
-                                        .span_note(else_span, "while parsing else branch")
-                                })?
-                            })
-                        })
+                        let else_span = self.cursor().token_stream().span();
+                        let else_;
+                        (else_, diagnostics) = MyParse::<Token![else]>::my_parse(
+                            self,
+                            identity,
+                            identity,
+                            diagnostics,
+                        )?;
+
+                        let mut content;
+                        if let Ok(brace) = (|| Ok(braced!(content in self)))() {
+                            let result;
+                            (result, diagnostics) = MyParse::<Inner>::my_parse(
+                                &content,
+                                identity,
+                                |diagnostic| {
+                                    diagnostic.span_note(else_span, "while parsing else branch")
+                                },
+                                diagnostics,
+                            )?;
+                            Some((else_, brace, result))
+                        } else {
+                            diagnostics.push(else_span.error("expected { }"));
+                            return Err(diagnostics);
+                        }
                     } else {
                         None
                     }
