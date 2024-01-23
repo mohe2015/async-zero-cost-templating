@@ -261,9 +261,9 @@ where
 
 pub struct HtmlForLoop<Inner> {
     pub for_token: Token![for],
-    pub pat: Pat,
+    pub pat: TokenStream,
     pub in_token: Token![in],
-    pub expr: Vec<TokenTree>,
+    pub expr: TokenStream,
     pub body: (Brace, Inner),
 }
 
@@ -272,23 +272,84 @@ where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
     fn inner_my_parse(self) -> Result<(HtmlForLoop<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
-        let for_token: Token![for] = self.parse()?;
+        let mut diagnostics = Vec::new();
+        let for_token: Token![for];
+        (for_token, diagnostics) =
+            MyParse::<Token![for]>::my_parse(self, identity, identity, diagnostics)?;
 
-        let pat = Pat::parse_multi_with_leading_vert(self)?;
+        let result = self.step(|cursor| {
+            let mut rest = *cursor;
+            let mut tokens = TokenStream::new();
+            while let Some((tt, next)) = rest.token_tree() {
+                tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
+                match &tt {
+                    TokenTree::Ident(ident) if ident.to_string() == "in" => {
+                        return Ok((tokens, rest));
+                    }
+                    _ => rest = next,
+                }
+            }
+            Err(cursor.error("no { was found after this point"))
+        });
+        let pat = match result {
+            Ok(value) => value,
+            Err(error) => {
+                diagnostics.push(error.into());
+                return Err(diagnostics);
+            }
+        };
 
-        let in_token: Token![in] = self.parse()?;
-        let expr: Expr = self.call(Expr::parse_without_eager_brace)?;
+        let in_token: Token![in];
+        (in_token, diagnostics) =
+            MyParse::<Token![in]>::my_parse(self, identity, identity, diagnostics)?;
 
+        let result = self.step(|cursor| {
+            let mut rest = *cursor;
+            let mut tokens = TokenStream::new();
+            while let Some((tt, next)) = rest.token_tree() {
+                tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
+                match &tt {
+                    TokenTree::Group(group) if group.delimiter() == Delimiter::Brace => {
+                        return Ok((tokens, rest));
+                    }
+                    _ => rest = next,
+                }
+            }
+            Err(cursor.error("no { was found after this point"))
+        });
+        let expr = match result {
+            Ok(value) => value,
+            Err(error) => {
+                diagnostics.push(error.into());
+                return Err(diagnostics);
+            }
+        };
+
+        let loop_span = self.cursor().token_stream().span();
         let content;
-        let brace_token = braced!(content in self);
-
-        Ok(HtmlForLoop {
-            for_token,
-            pat,
-            in_token,
-            expr,
-            body: (brace_token, content.parse()?),
-        })
+        let mut content;
+        if let Ok(brace_token) = (|| Ok(braced!(content in self)))() {
+            let result;
+            (result, diagnostics) = MyParse::<Inner>::my_parse(
+                &content,
+                identity,
+                |diagnostic| diagnostic.span_note(loop_span, "while parsing loop body"),
+                diagnostics,
+            )?;
+            Ok((
+                HtmlForLoop {
+                    for_token,
+                    pat,
+                    in_token,
+                    expr,
+                    body: (brace_token, content.parse()?),
+                },
+                diagnostics,
+            ))
+        } else {
+            diagnostics.push(loop_span.error("expected { }"));
+            return Err(diagnostics);
+        }
     }
 }
 
