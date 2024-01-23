@@ -49,6 +49,15 @@ impl<T: Parse> MyParse<T> for ParseStream<'_> {
     }
 }
 
+pub fn transpose<T>(
+    input: Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>,
+) -> (Result<T, ()>, Vec<Diagnostic>) {
+    match input {
+        Ok((t, diagnostics)) => (Ok(t), diagnostics),
+        Err(diagnostics) => (Err(()), diagnostics),
+    }
+}
+
 // https://docs.rs/syn/latest/syn/spanned/index.html sounds like nightly should produce much better spans
 
 // self and no errors
@@ -68,16 +77,15 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
         let mut children = Vec::new();
         while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
             let child_start_span = self.cursor().token_stream().span();
-            let result = self.my_parse(
+            let result;
+            (result, diagnostics) = transpose(self.my_parse(
                 |diagnostic| {
                     diagnostic
                         .span_note(child_start_span, "while parsing child")
                         .span_note(span, "while parsing children")
                 },
                 diagnostics,
-            );
-            let result;
-            (result, diagnostics) = result.transpose();
+            ));
             match result {
                 Ok(child) => {
                     children.push(child);
@@ -85,7 +93,7 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
                 Err(err) => {}
             }
         }
-        (Ok(HtmlChildren { children }), diagnostics)
+        Ok((HtmlChildren { children }, diagnostics))
     }
 }
 
