@@ -1,7 +1,7 @@
 use std::{collections::btree_map::Values, convert::identity, fmt::Display};
 
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
-use proc_macro2_diagnostics::Diagnostic;
+use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
     braced,
     buffer::Cursor,
@@ -38,12 +38,12 @@ trait MyParse<T> {
     fn inner_my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>;
 }
 
-impl<T: Parse> MyParse<T> for Cursor<'_> {
+impl<T: Parse> MyParse<T> for ParseStream<'_> {
     fn inner_my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>
     where
         Self: Sized,
     {
-        let result = syn::parse2(self.token_stream());
+        let result = self.parse();
         match result {
             Ok(t) => Ok((t, Vec::new())),
             Err(err) => Err(Vec::from([Diagnostic::from(err)])),
@@ -206,25 +206,20 @@ where
                 then_branch: {
                     let then_span = self.cursor().token_stream().span();
                     let content;
-                    if let Ok(_) = (|| Ok(braced!(content in self)))() {}
-                    match result {
-                        Ok(value) => (Brace(value.delim_span()), {
-                            let result;
-                            (result, diagnostics) = MyParse::<Inner>::my_parse(
-                                // we can't use parsebuffer because here we can't get the inner part?
-                                value.stream(),
-                                identity,
-                                |diagnostic| {
-                                    diagnostic.span_note(then_span, "while parsing then branch")
-                                },
-                                diagnostics,
-                            )?;
-                            result
-                        }),
-                        Err(error) => {
-                            diagnostics.push(error.into());
-                            return Err(diagnostics);
-                        }
+                    if let Ok(brace) = (|| Ok(braced!(content in self)))() {
+                        let result;
+                        (result, diagnostics) = MyParse::<Inner>::my_parse(
+                            &content,
+                            identity,
+                            |diagnostic| {
+                                diagnostic.span_note(then_span, "while parsing then branch")
+                            },
+                            diagnostics,
+                        )?;
+                        (brace, result)
+                    } else {
+                        diagnostics.push(then_span.error("expected { }"));
+                        return Err(diagnostics);
                     }
                 },
                 else_branch: {
