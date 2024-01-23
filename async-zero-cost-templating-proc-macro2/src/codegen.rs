@@ -29,9 +29,9 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
                 stream._yield(::bytes::Bytes::from_static(#byte_string)).await;
             }
         }
-        Intermediate::Computed(computed) => {
+        Intermediate::Computed((brace, computed)) => {
             let span = computed.span();
-            if let [value] = &computed.stmts[..] {
+            if let [value] = &computed.clone().into_iter().collect::<Vec<_>>()[..] {
                 quote_spanned! {span=>
                     stream._yield(#value).await;
                 }

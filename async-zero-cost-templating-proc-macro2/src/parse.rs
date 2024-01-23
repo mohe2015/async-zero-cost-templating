@@ -102,7 +102,7 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
 
 pub enum Html<Inner> {
     Literal(LitStr),
-    Computed(TokenTree),
+    Computed((Brace, TokenStream)),
     If(HtmlIf<Inner>),
     For(HtmlForLoop<Inner>),
     Element(HtmlElement),
@@ -113,7 +113,7 @@ where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
     fn inner_my_parse(self) -> Result<(Html<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
-        let diagnostics = Vec::new();
+        let mut diagnostics = Vec::new();
         let lookahead = self.lookahead1();
         let span = self.cursor().token_stream().span();
         if lookahead.peek(LitStr) {
@@ -138,12 +138,17 @@ where
                 diagnostics,
             )?)
         } else if lookahead.peek(Brace) {
-            Ok(MyParse::<TokenTree>::my_parse(
-                self,
-                Html::<Inner>::Computed,
-                |diagnostic| diagnostic.span_note(span, "while parsing computed"),
-                diagnostics,
-            )?)
+            let then_span = self.cursor().token_stream().span();
+            let mut content;
+            if let Ok(brace) = (|| Ok(braced!(content in self)))() {
+                Ok((
+                    Html::<Inner>::Computed((brace, content.cursor().token_stream())),
+                    diagnostics,
+                ))
+            } else {
+                diagnostics.push(then_span.error("expected { }"));
+                return Err(diagnostics);
+            }
         } else if lookahead.peek(Token![<]) {
             Ok(MyParse::<HtmlElement>::my_parse(
                 self,

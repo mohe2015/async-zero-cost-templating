@@ -1,5 +1,5 @@
-use proc_macro2::Span;
-use syn::{spanned::Spanned, Block};
+use proc_macro2::{Span, TokenStream, TokenTree};
+use syn::{spanned::Spanned, token::Brace, Block};
 
 use crate::parse::{
     Html, HtmlAttribute, HtmlAttributeValue, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf,
@@ -7,7 +7,7 @@ use crate::parse::{
 
 pub enum Intermediate {
     Literal(String, Span),
-    Computed(Block),
+    Computed((Brace, TokenStream)),
     If(HtmlIf<Vec<Intermediate>>),
     For(HtmlForLoop<Vec<Intermediate>>),
 }
