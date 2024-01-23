@@ -81,14 +81,21 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
         let mut children = Vec::new();
         while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
             let child_start_span = self.cursor().token_stream().span();
-            let (child, new_diagnostics) = self.my_parse().diagnostic_context(|diagnostic| {
-                diagnostic
-                    .span_note(child_start_span, "while parsing child")
-                    .span_note(span, "while parsing children")
-            });
-            diagnostics.extend(new_diagnostics);
-            if let Ok(child) = child {
-                children.push(child);
+            let result = self.my_parse(
+                |diagnostic| {
+                    diagnostic
+                        .span_note(child_start_span, "while parsing child")
+                        .span_note(span, "while parsing children")
+                },
+                diagnostics,
+            );
+            let result;
+            (result, diagnostics) = result.transpose();
+            match result {
+                Ok(child) => {
+                    children.push(child);
+                }
+                Err(err) => {}
             }
         }
         (Ok(HtmlChildren { children }), diagnostics)
@@ -112,10 +119,11 @@ where
         let lookahead = self.lookahead1();
         let span = self.cursor().token_stream().span();
         if lookahead.peek(LitStr) {
-            Ok((
-                Html::<Inner>::Literal(MyParse::<LitStr>::my_parse(self, &mut diagnostics)?),
+            Ok(Html::<Inner>::Literal(MyParse::<LitStr>::my_parse(
+                self,
+                |diagnostic| diagnostic,
                 diagnostics,
-            ))
+            )?))
         } else if lookahead.peek(Token![if]) {
             Ok(Html::<Inner>::If(self.my_parse().diagnostic_context(
                 |diagnostic| diagnostic.span_note(span, "while parsing if"),
