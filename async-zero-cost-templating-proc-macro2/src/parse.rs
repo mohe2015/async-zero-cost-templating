@@ -205,14 +205,8 @@ where
                 },
                 then_branch: {
                     let then_span = self.cursor().token_stream().span();
-                    let result = self.step(|cursor| match cursor.token_tree() {
-                        Some((TokenTree::Group(group), next))
-                            if group.delimiter() == Delimiter::Brace =>
-                        {
-                            Ok((group, next))
-                        }
-                        _ => Err(cursor.error("no { was found after this point")),
-                    });
+                    let content;
+                    if let Ok(_) = (|| Ok(braced!(content in self)))() {}
                     match result {
                         Ok(value) => (Brace(value.delim_span()), {
                             let result;
