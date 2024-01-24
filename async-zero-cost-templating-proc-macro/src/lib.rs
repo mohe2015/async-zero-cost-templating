@@ -9,10 +9,7 @@ use syn::parse_macro_input;
 #[proc_macro]
 pub fn html_proc_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let (html_children, diagnostics) = top_level_parse(input.into());
-    let intermediate = html_children
-        .into_iter()
-        .flat_map(Vec::<Intermediate>::from)
-        .collect();
+    let intermediate = Vec::<Intermediate>::from(html_children);
     let intermediate = simplify(intermediate);
 
     let output = top_level(intermediate);

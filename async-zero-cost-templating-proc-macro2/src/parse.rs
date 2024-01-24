@@ -11,9 +11,9 @@ use syn::{
     Expr, Ident, LitStr, Pat, Token,
 };
 
-pub fn top_level_parse(input: TokenStream) -> (Vec<Html<HtmlChildren>>, TokenStream) {
-    // this parse will only fail if we didn't fully consume the input
-    let result: syn::Result<HtmlChildren> = syn::parse2(input);
+pub fn top_level_parse(input: TokenStream) -> (HtmlChildren, TokenStream) {
+    // this parse will only fail if we didn't fully consume the input, but we catch that error inside
+    let result: syn::Result<HtmlTopLevel> = syn::parse2(input);
     match result {
         Ok(ok) => (
             ok.children,
@@ -22,7 +22,12 @@ pub fn top_level_parse(input: TokenStream) -> (Vec<Html<HtmlChildren>>, TokenStr
                 .map(|diagnostic| diagnostic.emit_as_item_tokens())
                 .collect(),
         ),
-        Err(err) => (Vec::new(), err.to_compile_error()),
+        Err(err) => (
+            HtmlChildren {
+                children: Vec::new(),
+            },
+            err.into_compile_error(),
+        ),
     }
 }
 
@@ -92,27 +97,46 @@ pub fn transpose<T>(
     }
 }
 
-// https://docs.rs/syn/latest/syn/spanned/index.html sounds like nightly should produce much better spans
-
-// self and no errors
-// self and errors
-// no self and errors
-
-pub struct HtmlChildren {
-    pub children: Vec<Html<HtmlChildren>>,
+pub struct HtmlTopLevel {
+    pub children: HtmlChildren,
     pub diagnostics: Vec<Diagnostic>, // maybe do this for all?
 }
 
-// our blanket impl breaks here
-impl Parse for HtmlChildren {
-    // maybe fork serde lol. and add a way to create a parsestream from a tokenstream?
+impl Parse for HtmlTopLevel {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(
-            MyParse::<HtmlChildren>::my_parse(input, identity, identity, Vec::new())
-                .unwrap()
-                .0,
-        )
+        let span = input.cursor().token_stream().span();
+
+        let mut diagnostics = Vec::new();
+
+        let mut children = Vec::new();
+        while !input.is_empty() {
+            let child_start_span = input.cursor().token_stream().span();
+            let result;
+            (result, diagnostics) = transpose(input.my_parse(
+                identity,
+                |diagnostic| {
+                    diagnostic
+                        .span_note(child_start_span, "while parsing top level child")
+                        .span_note(span, "while parsing top level children")
+                },
+                diagnostics,
+            ));
+            match result {
+                Ok(child) => {
+                    children.push(child);
+                }
+                Err(err) => {}
+            }
+        }
+        Ok(HtmlTopLevel {
+            children: HtmlChildren { children },
+            diagnostics,
+        })
     }
+}
+
+pub struct HtmlChildren {
+    pub children: Vec<Html<HtmlChildren>>,
 }
 
 impl MyParse<HtmlChildren> for ParseStream<'_> {
@@ -125,6 +149,7 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
         while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
             let child_start_span = self.cursor().token_stream().span();
             let result;
+            // TODO FIXME when erroring I think this could make no progress and then we would have an infinite loop. so the inner function needs to consume?
             (result, diagnostics) = transpose(self.my_parse(
                 identity,
                 |diagnostic| {
@@ -141,13 +166,7 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
                 Err(err) => {}
             }
         }
-        Ok((
-            HtmlChildren {
-                children,
-                diagnostics,
-            },
-            Vec::new(),
-        ))
+        Ok((HtmlChildren { children }, diagnostics))
     }
 }
 
