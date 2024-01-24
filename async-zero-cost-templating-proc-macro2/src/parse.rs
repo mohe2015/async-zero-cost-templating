@@ -11,7 +11,17 @@ use syn::{
     Expr, Ident, LitStr, Pat, Token,
 };
 
-pub fn top_level_parse(input: TokenStream) -> (HtmlChildren, TokenStream) {}
+pub fn top_level_parse(input: TokenStream) -> (Vec<Html<HtmlChildren>>, TokenStream) {
+    let result: HtmlChildren = syn::parse2(input).unwrap();
+    (
+        result.children,
+        result
+            .diagnostics
+            .into_iter()
+            .map(|diagnostic| diagnostic.emit_as_item_tokens())
+            .collect(),
+    )
+}
 
 trait MyParse<T> {
     /// We don't want to always abort parsing on failures to get better IDE support and also show more errors directly
@@ -86,31 +96,19 @@ pub fn transpose<T>(
 // no self and errors
 
 pub struct HtmlChildren {
-    pub children: Result<Vec<Html<HtmlChildren>>, ()>,
-    pub diagnostics: TokenStream, // maybe do this for all?
+    pub children: Vec<Html<HtmlChildren>>,
+    pub diagnostics: Vec<Diagnostic>, // maybe do this for all?
 }
 
 // our blanket impl breaks here
 impl Parse for HtmlChildren {
     // maybe fork serde lol. and add a way to create a parsestream from a tokenstream?
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let result = MyParse::<HtmlChildren>::my_parse(input, identity, identity, Vec::new());
-        match result {
-            Ok((children, diagnostics)) => Ok(HtmlChildren {
-                children,
-                diagnostics: diagnostics
-                    .into_iter()
-                    .map(|diagnostic| diagnostic.emit_as_item_tokens())
-                    .collect(),
-            }),
-            Err(diagnostics) => Ok(HtmlChildren {
-                children: Err(()),
-                diagnostics: diagnostics
-                    .into_iter()
-                    .map(|diagnostic| diagnostic.emit_as_item_tokens())
-                    .collect(),
-            }),
-        }
+        Ok(
+            MyParse::<HtmlChildren>::my_parse(input, identity, identity, Vec::new())
+                .unwrap()
+                .0,
+        )
     }
 }
 
@@ -140,7 +138,13 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
                 Err(err) => {}
             }
         }
-        Ok((HtmlChildren { children }, diagnostics))
+        Ok((
+            HtmlChildren {
+                children,
+                diagnostics,
+            },
+            Vec::new(),
+        ))
     }
 }
 
