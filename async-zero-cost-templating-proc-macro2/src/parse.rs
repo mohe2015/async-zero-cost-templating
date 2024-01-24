@@ -12,15 +12,18 @@ use syn::{
 };
 
 pub fn top_level_parse(input: TokenStream) -> (Vec<Html<HtmlChildren>>, TokenStream) {
-    let result: HtmlChildren = syn::parse2(input).unwrap();
-    (
-        result.children,
-        result
-            .diagnostics
-            .into_iter()
-            .map(|diagnostic| diagnostic.emit_as_item_tokens())
-            .collect(),
-    )
+    // this parse will only fail if we didn't fully consume the input
+    let result: syn::Result<HtmlChildren> = syn::parse2(input);
+    match result {
+        Ok(ok) => (
+            ok.children,
+            ok.diagnostics
+                .into_iter()
+                .map(|diagnostic| diagnostic.emit_as_item_tokens())
+                .collect(),
+        ),
+        Err(err) => (Vec::new(), err.to_compile_error()),
+    }
 }
 
 trait MyParse<T> {

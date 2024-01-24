@@ -1,3 +1,10 @@
 [workspace]
-members  = [ "async-zero-cost-templating", "async-zero-cost-templating-proc-macro","async-zero-cost-templating-proc-macro2"]
+members = [
+    "async-zero-cost-templating",
+    "async-zero-cost-templating-proc-macro",
+    "async-zero-cost-templating-proc-macro2",
+]
 resolver = "2"
+
+[profile.dev.build-override]
+debug = true
