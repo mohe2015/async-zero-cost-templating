@@ -10,6 +10,7 @@ use syn::{
     token::Brace,
     Expr, Ident, LitStr, Pat, Token,
 };
+use tracing::{error, error_span};
 
 pub fn top_level_parse(input: TokenStream) -> (HtmlChildren, TokenStream) {
     // this parse will only fail if we didn't fully consume the input, but we catch that error inside
@@ -104,6 +105,10 @@ pub struct HtmlTopLevel {
 
 impl Parse for HtmlTopLevel {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let span = error_span!("test");
+        let guard = span.enter();
+        error!("test");
+
         let span = input.cursor().token_stream().span();
 
         let mut diagnostics = Vec::new();
