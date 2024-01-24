@@ -40,18 +40,35 @@ trait MyParse<T> {
     fn inner_my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>;
 }
 
-impl<T: Parse> MyParse<T> for ParseStream<'_> {
-    fn inner_my_parse(self) -> Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>
-    where
-        Self: Sized,
-    {
-        let result = self.parse();
-        match result {
-            Ok(t) => Ok((t, Vec::new())),
-            Err(err) => Err(Vec::from([Diagnostic::from(err)])),
+macro_rules! my_parse {
+    ($t: ty) => {
+        impl MyParse<$t> for ParseStream<'_> {
+            fn inner_my_parse(self) -> Result<($t, Vec<Diagnostic>), Vec<Diagnostic>>
+            where
+                Self: Sized,
+            {
+                let result = self.parse();
+                match result {
+                    Ok(t) => Ok((t, Vec::new())),
+                    Err(err) => Err(Vec::from([Diagnostic::from(err)])),
+                }
+            }
         }
-    }
+    };
 }
+
+my_parse!(LitStr);
+my_parse!(Token![if]);
+my_parse!(Token![else]);
+my_parse!(Token![<]);
+my_parse!(Token![/]);
+my_parse!(Token![>]);
+my_parse!(Token![!]);
+my_parse!(Option<Token![!]>);
+my_parse!(Token![=]);
+my_parse!(Token![in]);
+my_parse!(Token![for]);
+my_parse!(proc_macro2::Ident);
 
 pub fn transpose<T>(
     input: Result<(T, Vec<Diagnostic>), Vec<Diagnostic>>,
