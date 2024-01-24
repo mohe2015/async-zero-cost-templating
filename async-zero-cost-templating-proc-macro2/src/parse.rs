@@ -75,6 +75,7 @@ pub struct HtmlChildren {
 
 // our blanket impl breaks here
 impl Parse for HtmlChildren {
+    // maybe fork serde lol. and add a way to create a parsestream from a tokenstream?
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let result = MyParse::<HtmlChildren>::my_parse(input, identity, identity, Vec::new());
         match result {
