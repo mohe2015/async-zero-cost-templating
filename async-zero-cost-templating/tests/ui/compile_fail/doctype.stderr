@@ -7,9 +7,7 @@ error: unexpected end of input, expected identifier
 7 | |     }
   | |_____^
   |
-  = note: this error originates in the macro `html_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: [note] while parsing attribute
+note: while parsing attribute
  --> tests/ui/compile_fail/doctype.rs:4:5
   |
 4 | /     html_proc_macro! {
@@ -17,24 +15,20 @@ error: [note] while parsing attribute
 6 | |         <html
 7 | |     }
   | |_____^
-  |
-  = note: this error originates in the macro `html_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: [note] while parsing element
+note: while parsing element
  --> tests/ui/compile_fail/doctype.rs:6:9
   |
 6 |         <html
   |         ^^^^^
-
-error: [note] while parsing child
+note: while parsing top level child
  --> tests/ui/compile_fail/doctype.rs:6:9
   |
 6 |         <html
   |         ^^^^^
-
-error: [note] while parsing children
+note: while parsing top level children
  --> tests/ui/compile_fail/doctype.rs:5:9
   |
 5 | /         <!doctype html>
 6 | |         <html
   | |_____________^
+  = note: this error originates in the macro `html_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)
