@@ -1,5 +1,4 @@
 {
-    "editor.formatOnSave": true,
     "evenBetterToml.formatter.reorderKeys": true,
     "evenBetterToml.formatter.reorderArrays": true,
     "evenBetterToml.formatter.alignEntries": true,
