@@ -39,7 +39,7 @@ pub fn top_level_parse(input: TokenStream) -> (HtmlChildren, TokenStream) {
 
 trait MyParse<T> {
     /// We don't want to always abort parsing on failures to get better IDE support and also show more errors directly
-    #[instrument(skip(t_mapper, fun))]
+    #[instrument(name = "MyParse", skip(t_mapper, fun))]
     fn my_parse<Q>(
         self,
         t_mapper: impl Fn(T) -> Q,
@@ -68,7 +68,7 @@ trait MyParse<T> {
 macro_rules! my_parse {
     ($t: ty) => {
         impl MyParse<$t> for ParseStream<'_> {
-            #[instrument]
+            #[instrument(name = "$t")]
             fn inner_my_parse(self) -> Result<($t, Vec<Diagnostic>), Vec<Diagnostic>>
             where
                 Self: Sized,
@@ -113,11 +113,8 @@ pub struct HtmlTopLevel {
 }
 
 impl Parse for HtmlTopLevel {
-    #[instrument]
+    #[instrument(name = "HtmlTopLevel")]
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let span = error_span!("HtmlTopLevel");
-        let span = span.enter();
-
         let span = input.cursor().token_stream().span();
 
         let mut diagnostics = Vec::new();
@@ -155,7 +152,7 @@ pub struct HtmlChildren {
 }
 
 impl MyParse<HtmlChildren> for ParseStream<'_> {
-    #[instrument]
+    #[instrument(name = "HtmlChildren")]
     fn inner_my_parse(self) -> Result<(HtmlChildren, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = self.cursor().token_stream().span();
 
@@ -199,7 +196,7 @@ impl<Inner: Debug> MyParse<Html<Inner>> for ParseStream<'_>
 where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
-    #[instrument]
+    #[instrument(name = "Html<Inner>")]
     fn inner_my_parse(self) -> Result<(Html<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
         let lookahead = self.lookahead1();
@@ -264,7 +261,7 @@ impl<Inner> MyParse<HtmlIf<Inner>> for ParseStream<'_>
 where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
-    #[instrument]
+    #[instrument(name = "HtmlIf<Inner>")]
     fn inner_my_parse(self) -> Result<(HtmlIf<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
         Ok((
@@ -373,7 +370,7 @@ impl<Inner> MyParse<HtmlForLoop<Inner>> for ParseStream<'_>
 where
     for<'a> ParseStream<'a>: MyParse<Inner>,
 {
-    #[instrument]
+    #[instrument(name = "HtmlForLoop<Inner>")]
     fn inner_my_parse(self) -> Result<(HtmlForLoop<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
         let for_token: Token![for];
@@ -463,7 +460,7 @@ pub struct HtmlAttributeValue {
 }
 
 impl MyParse<HtmlAttributeValue> for ParseStream<'_> {
-    #[instrument]
+    #[instrument(name = "HtmlAttributeValue")]
     fn inner_my_parse(self) -> Result<(HtmlAttributeValue, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = self.cursor().token_stream().span();
 
@@ -501,7 +498,7 @@ pub struct HtmlAttribute {
 }
 
 impl MyParse<HtmlAttribute> for ParseStream<'_> {
-    #[instrument]
+    #[instrument(name = "HtmlAttribute")]
     fn inner_my_parse(self) -> Result<(HtmlAttribute, Vec<Diagnostic>), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
 
@@ -546,7 +543,7 @@ pub struct HtmlTag {
 }
 
 impl HtmlTag {
-    #[instrument]
+    #[instrument(name = "HtmlTag::span")]
     pub fn span(&self) -> proc_macro2::Span {
         if let Some(exclamation) = self.exclamation {
             exclamation.span().join(self.name.span()).unwrap()
@@ -572,7 +569,7 @@ impl Display for HtmlTag {
 }
 
 impl MyParse<HtmlTag> for ParseStream<'_> {
-    #[instrument]
+    #[instrument(name = "HtmlTag")]
     fn inner_my_parse(self) -> Result<(HtmlTag, Vec<Diagnostic>), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
 
@@ -606,7 +603,7 @@ pub struct HtmlElement {
 }
 
 impl MyParse<HtmlElement> for ParseStream<'_> {
-    #[instrument]
+    #[instrument(name = "HtmlElement")]
     fn inner_my_parse(self) -> Result<(HtmlElement, Vec<Diagnostic>), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
 
