@@ -1,8 +1,8 @@
 use async_zero_cost_templating::html_proc_macro;
 use async_zero_cost_templating::TheStream;
 use bytes::Bytes;
-use futures_util::stream::StreamExt;
 use core::pin::pin;
+use futures_util::stream::StreamExt;
 
 #[tokio::test]
 async fn test() {

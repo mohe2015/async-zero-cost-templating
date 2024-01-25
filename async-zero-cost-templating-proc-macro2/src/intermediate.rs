@@ -128,9 +128,10 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
             .fold((Vec::new(), None), |(mut acc, current), next| {
                 match (current, next) {
                     (None, Intermediate::Literal(lit, span)) => (acc, Some((lit, span))),
-                    (Some((lit1, span1)), Intermediate::Literal(lit2, span2)) => {
-                        (acc, Some((lit1 + &lit2, span1.join(span2).unwrap_or(span1))))
-                    }
+                    (Some((lit1, span1)), Intermediate::Literal(lit2, span2)) => (
+                        acc,
+                        Some((lit1 + &lit2, span1.join(span2).unwrap_or(span1))),
+                    ),
                     (Some((lit, span)), next) => (
                         {
                             acc.push(Intermediate::Literal(lit, span));

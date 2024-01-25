@@ -1,45 +1,47 @@
+use quote::quote;
 use std::{
     convert::identity,
     fmt::{Debug, Display},
 };
-use quote::quote;
 
-use tracing::{error, level_filters::LevelFilter};
-use tracing_subscriber::{
-    fmt::format::FmtSpan, layer::SubscriberExt as _, util::SubscriberInitExt,
-};
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
     braced,
     parse::{Parse, ParseStream},
     spanned::Spanned,
-    token::{Brace, Else, For, If, In}, Ident, LitStr, Token,
+    token::{Brace, Else, For, If, In},
+    Ident, LitStr, Token,
 };
-use tracing::{instrument};
+use tracing::instrument;
+use tracing::{error, level_filters::LevelFilter};
+use tracing_subscriber::{
+    fmt::format::FmtSpan, layer::SubscriberExt as _, util::SubscriberInitExt,
+};
 
-use crate::{codegen::top_level, intermediate::{simplify, Intermediate}};
+use crate::{
+    codegen::top_level,
+    intermediate::{simplify, Intermediate},
+};
 
 #[instrument(ret)]
 pub fn top_level_parse(input: TokenStream) -> TokenStream {
     tracing_subscriber::registry()
-    .with(LevelFilter::ERROR)
-    .with(
-        tracing_subscriber::fmt::layer()
-            .pretty()
-            .with_span_events(FmtSpan::ACTIVE),
-    )
-    .init();
-
+        .with(LevelFilter::ERROR)
+        .with(
+            tracing_subscriber::fmt::layer()
+                .pretty()
+                .with_span_events(FmtSpan::ACTIVE),
+        )
+        .init();
 
     // this parse will only fail if we didn't fully consume the input
     // if this crashes then you probably didn't directly consume these but just extracted them which doesn't work
     let result: syn::Result<HtmlTopLevel> = syn::parse2(input);
     let (html_children, diagnostics) = match result {
-        Ok(ok) => (
-            ok.children,
-            {
-                let errors: TokenStream = ok.diagnostics
+        Ok(ok) => (ok.children, {
+            let errors: TokenStream = ok
+                .diagnostics
                 .into_iter()
                 .map(|diagnostic| diagnostic.emit_as_expr_tokens())
                 .collect();
@@ -48,8 +50,7 @@ pub fn top_level_parse(input: TokenStream) -> TokenStream {
                     #errors
                 }
             }
-            },
-        ),
+        }),
         Err(err) => (
             HtmlChildren {
                 children: Vec::new(),
@@ -61,20 +62,19 @@ pub fn top_level_parse(input: TokenStream) -> TokenStream {
                         #compile_error
                     }
                 }
-            }
+            },
         ),
     };
 
+    let intermediate = Vec::<Intermediate>::from(html_children);
+    let intermediate = simplify(intermediate);
 
-let intermediate = Vec::<Intermediate>::from(html_children);
-let intermediate = simplify(intermediate);
-
-let output = top_level(intermediate);
-let output = quote! {
-    #diagnostics
-    #output
-};
-error!("{:?}", output.to_string());
+    let output = top_level(intermediate);
+    let output = quote! {
+        #diagnostics
+        #output
+    };
+    error!("{:?}", output.to_string());
 
     output
 }
@@ -292,7 +292,8 @@ where
                 } else {
                     Ok(((), *cursor))
                 }
-            }).unwrap();
+            })
+            .unwrap();
             Err(Vec::from([Diagnostic::from(lookahead.error())]))
         }
     }
@@ -332,10 +333,10 @@ where
                                 {
                                     return Ok((tokens, rest));
                                 }
-                                _ => {                            
+                                _ => {
                                     tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
                                     rest = next;
-                                },
+                                }
                             }
                         }
                         Err(cursor.error("no { was found after this point"))
@@ -439,7 +440,7 @@ where
                     _ => {
                         tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
                         rest = next;
-                    },
+                    }
                 }
             }
             Err(cursor.error("no { was found after this point"))
@@ -467,7 +468,7 @@ where
                     _ => {
                         tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
                         rest = next;
-                    },
+                    }
                 }
             }
             Err(cursor.error("no { was found after this point"))
@@ -601,7 +602,10 @@ impl HtmlTag {
     #[instrument(ret, name = "HtmlTag::span")]
     pub fn span(&self) -> proc_macro2::Span {
         if let Some(exclamation) = self.exclamation {
-            exclamation.span().join(self.name.span()).unwrap_or_else(|| self.name.span())
+            exclamation
+                .span()
+                .join(self.name.span())
+                .unwrap_or_else(|| self.name.span())
         } else {
             self.name.span()
         }
