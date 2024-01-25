@@ -3,10 +3,10 @@ use bytes::Bytes;
 
 pub fn main() {
     let mut result = futures_util::stream::iter([Bytes::from_static(b"hi"), Bytes::from_static(b"hi"), Bytes::from_static(b"hi")]);
-    html_proc_macro! {
+    let _ = html_proc_macro! {
         for row in &mut result {
             "true"
             { row }
         }
-    }
+    };
 }

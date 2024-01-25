@@ -13,7 +13,7 @@ use tracing_subscriber::{
 #[proc_macro]
 pub fn html_proc_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     tracing_subscriber::registry()
-        .with(LevelFilter::TRACE)
+        .with(LevelFilter::ERROR)
         .with(
             tracing_subscriber::fmt::layer()
                 .pretty()

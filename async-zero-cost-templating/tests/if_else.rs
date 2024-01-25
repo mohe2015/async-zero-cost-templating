@@ -4,7 +4,7 @@ use bytes::Bytes;
 pub fn main() {
     let condition = true;
     let variable = Bytes::from_static(b"hi");
-    html_proc_macro! {
+    let _ = html_proc_macro! {
         if condition {
             "true"
             { variable }
@@ -12,5 +12,5 @@ pub fn main() {
             "false"
             { variable }
         }
-    }
+    };
 }
