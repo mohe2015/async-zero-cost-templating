@@ -66,7 +66,6 @@ trait MyParse<T> {
 macro_rules! my_parse {
     ($t: ty) => {
         impl MyParse<$t> for ParseStream<'_> {
-            #[instrument(err(Debug), ret, name = "$t")]
             fn inner_my_parse(self) -> Result<($t, Vec<Diagnostic>), Vec<Diagnostic>>
             where
                 Self: Sized,
