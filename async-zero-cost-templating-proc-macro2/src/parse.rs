@@ -526,7 +526,7 @@ impl MyParse<HtmlAttributeValue> for ParseStream<'_> {
 #[derive(Debug)]
 pub struct HtmlAttribute {
     pub key: Ident,
-    pub value: Option<(Token![=], Html<HtmlAttributeValue>)>,
+    pub value: Option<(Token![=], HtmlAttributeValue)>,
 }
 
 impl MyParse<HtmlAttribute> for ParseStream<'_> {
@@ -554,7 +554,7 @@ impl MyParse<HtmlAttribute> for ParseStream<'_> {
                         (value, diagnostics) = if lookahead1.peek(LitStr) {
                             MyParse::<LitStr>::my_parse(
                                 self,
-                                Html::<HtmlAttributeValue>::Literal,
+                                |value| HtmlAttributeValue { children: Vec::from([Html::<HtmlAttributeValue>::Literal(value)]) },
                                 identity,
                                 diagnostics,
                             )?
@@ -564,7 +564,7 @@ impl MyParse<HtmlAttribute> for ParseStream<'_> {
                                 let content;
                                 Ok((bracketed!(content in self), content))
                             })() {
-                                MyParse::<Html<HtmlAttributeValue>>::my_parse(&content, identity, identity, diagnostics)?
+                                MyParse::<HtmlAttributeValue>::my_parse(&content, identity, identity, diagnostics)?
                             } else {
                                 diagnostics.push(then_span.error("expected { }"));
                                 return Err(diagnostics);
