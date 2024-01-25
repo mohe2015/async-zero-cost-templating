@@ -558,7 +558,7 @@ impl HtmlTag {
     #[instrument(ret, name = "HtmlTag::span")]
     pub fn span(&self) -> proc_macro2::Span {
         if let Some(exclamation) = self.exclamation {
-            exclamation.span().join(self.name.span()).unwrap()
+            exclamation.span().join(self.name.span()).unwrap_or_else(|| self.name.span())
         } else {
             self.name.span()
         }
@@ -699,7 +699,7 @@ impl MyParse<HtmlElement> for ParseStream<'_> {
                     }
                 },
             },
-            Vec::new(),
+            diagnostics,
         ))
     }
 }

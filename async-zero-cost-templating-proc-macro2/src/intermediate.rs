@@ -129,7 +129,7 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
                 match (current, next) {
                     (None, Intermediate::Literal(lit, span)) => (acc, Some((lit, span))),
                     (Some((lit1, span1)), Intermediate::Literal(lit2, span2)) => {
-                        (acc, Some((lit1 + &lit2, span1.join(span2).unwrap())))
+                        (acc, Some((lit1 + &lit2, span1.join(span2).unwrap_or(span1))))
                     }
                     (Some((lit, span)), next) => (
                         {

@@ -1,5 +1,9 @@
 # async-zero-cost-templating
 
 ```
-RUSTFLAGS="-Z proc-macro-backtrace"  cargo +nightly build --test variable
+RUSTFLAGS="-Zproc-macro-backtrace" cargo +nightly test
+
+# Rust does parser recovery so the output of this is not equal to the macro output
+cargo expand -p async-zero-cost-templating --test variable
+cargo rustc --package async-zero-cost-templating --test variable --profile=check -- -Zunpretty=expanded
 ```

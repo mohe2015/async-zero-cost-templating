@@ -4,6 +4,6 @@ use bytes::Bytes;
 pub fn main() {
     let variable = Bytes::from_static(b"hi");
     html_proc_macro! {
-        { variable. }
+        { variable }
     }
 }
