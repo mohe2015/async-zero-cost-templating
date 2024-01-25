@@ -37,42 +37,23 @@ pub fn top_level_parse(input: TokenStream) -> TokenStream {
 
     // this parse will only fail if we didn't fully consume the input
     // if this crashes then you probably didn't directly consume these but just extracted them which doesn't work
-    let result: syn::Result<HtmlTopLevel> = syn::parse2(input);
-    let (html_children, diagnostics) = match result {
-        Ok(ok) => (ok.children, {
-            let errors: TokenStream = ok
-                .diagnostics
-                .into_iter()
-                .map(|diagnostic| diagnostic.emit_as_expr_tokens())
-                .collect();
-            quote! {
-                {
-                    #errors
-                }
-            }
-        }),
-        Err(err) => (
-            HtmlChildren {
-                children: Vec::new(),
-            },
-            {
-                let compile_error = err.into_compile_error();
-                quote! {
-                    {
-                        #compile_error
-                    }
-                }
-            },
-        ),
+    let html_top_level: HtmlTopLevel = match syn::parse2(input) {
+        Ok(ok) => ok,
+        Err(err) => return err.into_compile_error(),
     };
+    let diagnostics = html_top_level.diagnostics
+        .into_iter()
+        .map(|diagnostic| diagnostic.emit_as_expr_tokens());
 
-    let intermediate = Vec::<Intermediate>::from(html_children);
+    let intermediate = Vec::<Intermediate>::from(html_top_level.children);
     let intermediate = simplify(intermediate);
 
     let output = top_level(intermediate);
     let output = quote! {
-        #diagnostics
-        #output
+        {
+            #(#diagnostics)*
+            #output
+        }
     };
     error!("{:?}", output.to_string());
 
