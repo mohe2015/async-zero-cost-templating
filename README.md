@@ -8,4 +8,6 @@ cargo expand -p async-zero-cost-templating --test variable
 cargo rustc --package async-zero-cost-templating --test variable --profile=check -- -Zunpretty=expanded
 ```
 
-Use rust-analyzer's expand macro feature to find out why it is broken
+Use rust-analyzer's expand macro feature to find out why it is broken.
+
+/*ERROR*/ in the expanded code is a compile error that should be shown above
