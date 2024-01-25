@@ -246,6 +246,13 @@ where
                 diagnostics,
             )?)
         } else {
+            self.step(|cursor| {
+                if let Some((_, next)) = cursor.token_tree() {
+                    Ok(((), next))
+                } else {
+                    Ok(((), *cursor))
+                }
+            }).unwrap();
             Err(Vec::from([Diagnostic::from(lookahead.error())]))
         }
     }
