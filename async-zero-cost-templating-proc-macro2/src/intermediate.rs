@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use proc_macro2::{Span, TokenStream, TokenTree};
-use syn::{spanned::Spanned, token::Brace, Block};
+use proc_macro2::{Span, TokenStream};
+use syn::{spanned::Spanned, token::Brace};
 
 use crate::parse::{
     Html, HtmlAttribute, HtmlAttributeValue, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf,

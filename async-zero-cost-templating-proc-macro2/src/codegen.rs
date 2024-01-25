@@ -29,7 +29,7 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
                 stream._yield(::bytes::Bytes::from_static(#byte_string)).await;
             }
         }
-        Intermediate::Computed((brace, computed)) => {
+        Intermediate::Computed((_brace, computed)) => {
             let span = computed.span();
             if let [value] = &computed.clone().into_iter().collect::<Vec<_>>()[..] {
                 quote_spanned! {span=>
@@ -47,7 +47,7 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
             then_branch,
             else_branch,
         }) => {
-            let else_ = else_branch.map(|(else_, brace, inner)| {
+            let else_ = else_branch.map(|(else_, _brace, inner)| {
                 let inner = codegen(inner);
                 quote! {
                     #else_ {
@@ -63,9 +63,9 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
             }
         }
         Intermediate::For(HtmlForLoop {
-            for_token,
+            for_token: _,
             pat,
-            in_token,
+            in_token: _,
             expr,
             body,
         }) => {

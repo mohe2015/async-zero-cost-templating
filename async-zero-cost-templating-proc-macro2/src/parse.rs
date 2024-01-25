@@ -1,5 +1,4 @@
 use std::{
-    collections::btree_map::Values,
     convert::identity,
     fmt::{Debug, Display},
 };
@@ -8,13 +7,11 @@ use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
     braced,
-    buffer::Cursor,
     parse::{Parse, ParseStream},
     spanned::Spanned,
-    token::{Brace, Else, For, If, In},
-    Expr, Ident, LitStr, Pat, Token,
+    token::{Brace, Else, For, If, In}, Ident, LitStr, Token,
 };
-use tracing::{error, error_span, instrument};
+use tracing::{error, instrument};
 
 #[instrument(ret)]
 pub fn top_level_parse(input: TokenStream) -> (HtmlChildren, TokenStream) {
@@ -137,7 +134,7 @@ impl Parse for HtmlTopLevel {
                 Ok(child) => {
                     children.push(child);
                 }
-                Err(err) => {}
+                Err(_err) => {}
             }
         }
         error!("{:?}", input);
@@ -178,7 +175,7 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
                 Ok(child) => {
                     children.push(child);
                 }
-                Err(err) => {}
+                Err(_err) => {}
             }
         }
         Ok((HtmlChildren { children }, diagnostics))
@@ -393,7 +390,7 @@ where
             let mut tokens = TokenStream::new();
             while let Some((tt, next)) = rest.token_tree() {
                 match &tt {
-                    TokenTree::Ident(ident) if ident.to_string() == "in" => {
+                    TokenTree::Ident(ident) if *ident == "in" => {
                         return Ok((tokens, rest));
                     }
                     _ => {
@@ -499,7 +496,7 @@ impl MyParse<HtmlAttributeValue> for ParseStream<'_> {
                 Ok(child) => {
                     children.push(child);
                 }
-                Err(err) => {}
+                Err(_err) => {}
             }
         }
         Ok((HtmlAttributeValue { children }, diagnostics))
@@ -578,7 +575,7 @@ impl Display for HtmlTag {
             } else {
                 String::new()
             },
-            self.name.to_string()
+            self.name
         )
     }
 }
