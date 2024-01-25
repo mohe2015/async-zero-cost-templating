@@ -6,8 +6,9 @@ use futures_util::stream::StreamExt;
 
 #[tokio::test]
 async fn test() {
+    let value = Bytes::from_static(b"hi");
     let stream = html_proc_macro! {
-        <a href="test">"Link"</a>
+        <a href=["test" {value}]>"Link"</a>
     };
     let mut stream = pin!(TheStream::new(stream));
     while let Some(element) = stream.next().await {

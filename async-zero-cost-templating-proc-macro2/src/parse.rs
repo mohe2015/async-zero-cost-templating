@@ -7,11 +7,7 @@ use std::{
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
-    braced,
-    parse::{Parse, ParseStream},
-    spanned::Spanned,
-    token::{Brace, Else, For, If, In},
-    Ident, LitStr, Token,
+    braced, bracketed, parse::{Parse, ParseStream}, spanned::Spanned, token::{Brace, Bracket, Else, For, If, In}, Ident, LitStr, Token
 };
 use tracing::instrument;
 use tracing::{error, level_filters::LevelFilter};
@@ -185,7 +181,6 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
         while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
             let child_start_span = self.cursor().token_stream().span();
             let result;
-            // TODO FIXME when erroring I think this could make no progress and then we would have an infinite loop. so the inner function needs to consume?
             (result, diagnostics) = transpose(self.my_parse(
                 identity,
                 |diagnostic| {
@@ -549,20 +544,36 @@ impl MyParse<HtmlAttribute> for ParseStream<'_> {
                 },
                 value: {
                     if self.peek(Token![=]) {
-                        Some((
-                            {
-                                let value;
-                                (value, diagnostics) =
-                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
-                                value
-                            },
-                            {
-                                let value;
-                                (value, diagnostics) =
-                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
-                                value
-                            },
-                        ))
+                        // TODO FIXME check for string or []
+                        let eq: Token![=];
+                        (eq, diagnostics) =
+                            MyParse::my_parse(self, identity, identity, diagnostics)?;
+                        let lookahead1 = self.lookahead1();
+                        
+                        let value;
+                        (value, diagnostics) = if lookahead1.peek(LitStr) {
+                            MyParse::<LitStr>::my_parse(
+                                self,
+                                Html::<HtmlAttributeValue>::Literal,
+                                identity,
+                                diagnostics,
+                            )?
+                        } else if lookahead1.peek(Bracket) {
+                            let then_span = self.cursor().token_stream().span();
+                            if let Ok((bracket, content)) = (|| {
+                                let content;
+                                Ok((bracketed!(content in self), content))
+                            })() {
+                                MyParse::<Html<HtmlAttributeValue>>::my_parse(&content, identity, identity, diagnostics)?
+                            } else {
+                                diagnostics.push(then_span.error("expected { }"));
+                                return Err(diagnostics);
+                            }
+                        } else {
+                            diagnostics.push(Diagnostic::from(lookahead1.error()));
+                            return Err(diagnostics)
+                        };
+                        Some((eq, value))
                     } else {
                         None
                     }
