@@ -18,7 +18,8 @@ use tracing::{error, error_span, instrument};
 
 #[instrument(ret)]
 pub fn top_level_parse(input: TokenStream) -> (HtmlChildren, TokenStream) {
-    // this parse will only fail if we didn't fully consume the input, but we catch that error inside
+    // this parse will only fail if we didn't fully consume the input
+    // if this crashes then you probably didn't directly consume these but just extracted them which doesn't work
     let result: syn::Result<HtmlTopLevel> = syn::parse2(input);
     match result {
         Ok(ok) => (
@@ -139,6 +140,7 @@ impl Parse for HtmlTopLevel {
                 Err(err) => {}
             }
         }
+        error!("{:?}", input);
         Ok(HtmlTopLevel {
             children: HtmlChildren { children },
             diagnostics,
@@ -229,7 +231,7 @@ where
                 Ok((braced!(content in self), content))
             })() {
                 Ok((
-                    Html::<Inner>::Computed((brace, content.cursor().token_stream())),
+                    Html::<Inner>::Computed((brace, content.parse().unwrap())),
                     diagnostics,
                 ))
             } else {
