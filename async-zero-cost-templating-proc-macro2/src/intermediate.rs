@@ -36,9 +36,9 @@ impl From<HtmlAttribute> for Vec<Intermediate> {
                 value
                     .value
                     .map(|value| {
-                        [Intermediate::Literal("=".to_owned(), value.0.span())]
+                        [Intermediate::Literal(r#"=""#.to_owned(), value.0.span())]
                             .into_iter()
-                            .chain(Vec::<Intermediate>::from(value.1))
+                            .chain(Vec::<Intermediate>::from(value.1)).chain([Intermediate::Literal(r#"""#.to_owned(), value.0.span())])
                     })
                     .into_iter()
                     .flatten(),
