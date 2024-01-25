@@ -279,14 +279,16 @@ where
                         let mut rest = *cursor;
                         let mut tokens = TokenStream::new();
                         while let Some((tt, next)) = rest.token_tree() {
-                            tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
                             match &tt {
                                 TokenTree::Group(group)
                                     if group.delimiter() == Delimiter::Brace =>
                                 {
                                     return Ok((tokens, rest));
                                 }
-                                _ => rest = next,
+                                _ => {                            
+                                    tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
+                                    rest = next;
+                                },
                             }
                         }
                         Err(cursor.error("no { was found after this point"))
@@ -383,12 +385,14 @@ where
             let mut rest = *cursor;
             let mut tokens = TokenStream::new();
             while let Some((tt, next)) = rest.token_tree() {
-                tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
                 match &tt {
                     TokenTree::Ident(ident) if ident.to_string() == "in" => {
                         return Ok((tokens, rest));
                     }
-                    _ => rest = next,
+                    _ => {
+                        tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
+                        rest = next;
+                    },
                 }
             }
             Err(cursor.error("no { was found after this point"))
@@ -414,7 +418,10 @@ where
                     TokenTree::Group(group) if group.delimiter() == Delimiter::Brace => {
                         return Ok((tokens, rest));
                     }
-                    _ => rest = next,
+                    _ => {
+                        tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
+                        rest = next;
+                    },
                 }
             }
             Err(cursor.error("no { was found after this point"))

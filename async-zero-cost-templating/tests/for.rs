@@ -5,7 +5,7 @@ pub fn main() {
     html_proc_macro! {
         for row in &mut result {
             "true"
-            { row. }
+            { row }
         }
     }
 }
