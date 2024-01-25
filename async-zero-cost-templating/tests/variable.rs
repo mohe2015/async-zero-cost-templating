@@ -7,10 +7,11 @@ use futures_util::stream::StreamExt;
 #[tokio::test]
 async fn test() {
     let variable = Bytes::from_static(b"hi");
-    let mut test = pin!(TheStream::new(html_proc_macro! {
+    let stream = html_proc_macro! {
         { variable }
-    }));
-    while let Some(element) = test.next().await {
+    };
+    let mut stream = pin!(TheStream::new(stream));
+    while let Some(element) = stream.next().await {
         println!("{:?}", element);
     }
 }

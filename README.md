@@ -11,3 +11,5 @@ cargo rustc --package async-zero-cost-templating --test variable --profile=check
 Use rust-analyzer's expand macro feature to find out why it is broken.
 
 /*ERROR*/ in the expanded code is a compile error that should be shown above
+
+Look at rust-analyzer's output pane to see panics of macro etc

@@ -26,14 +26,14 @@ use crate::{
 
 #[instrument(ret)]
 pub fn top_level_parse(input: TokenStream) -> TokenStream {
-    tracing_subscriber::registry()
-        .with(LevelFilter::ERROR)
+    let _ = tracing_subscriber::registry()
+        .with(LevelFilter::OFF)
         .with(
             tracing_subscriber::fmt::layer()
                 .pretty()
                 .with_span_events(FmtSpan::ACTIVE),
         )
-        .init();
+        .try_init();
 
     // this parse will only fail if we didn't fully consume the input
     // if this crashes then you probably didn't directly consume these but just extracted them which doesn't work
