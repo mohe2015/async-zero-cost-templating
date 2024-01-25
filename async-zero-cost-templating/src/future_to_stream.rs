@@ -42,7 +42,7 @@ pub struct TheStream<F: Future<Output = ()>> {
 }
 
 impl<F: Future<Output = ()>> TheStream<F> {
-    pub fn new(input: impl Fn(FutureToStream) -> F) -> Self {
+    pub fn new(input: impl FnOnce(FutureToStream) -> F) -> Self {
         Self {
             future: input(FutureToStream(())),
         }
