@@ -31,14 +31,9 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
         }
         Intermediate::Computed((_brace, computed)) => {
             let span = computed.span();
-            if let [value] = &computed.clone().into_iter().collect::<Vec<_>>()[..] {
-                quote_spanned! {span=>
-                    stream._yield(#value).await;
-                }
-            } else {
-                quote_spanned! {span=>
-                    stream._yield(#computed).await;
-                }
+            // we would need to check whether this is a full expr (which is impossible on compile errors)
+            quote_spanned! {span=>
+                stream._yield(#[allow(unused_braces)] { #computed }).await;
             }
         }
         Intermediate::If(HtmlIf {

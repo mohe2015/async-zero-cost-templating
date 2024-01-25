@@ -7,9 +7,9 @@ use futures_util::stream::StreamExt;
 #[tokio::test]
 async fn test() {
     let mut result = futures_util::stream::iter([
-        Bytes::from_static(b"a"),
-        Bytes::from_static(b"b"),
-        Bytes::from_static(b"c"),
+        Bytes::from_static(b"abc"),
+        Bytes::from_static(b"def"),
+        Bytes::from_static(b"ghi"),
     ]);
     let stream = html_proc_macro! {
         for row in &mut result {
