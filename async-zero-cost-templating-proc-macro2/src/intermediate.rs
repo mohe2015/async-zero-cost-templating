@@ -28,7 +28,7 @@ impl From<HtmlAttribute> for Vec<Intermediate> {
     fn from(value: HtmlAttribute) -> Self {
         Vec::from_iter(
             [Intermediate::Literal(
-                value.key.to_string(),
+                " ".to_owned() + &value.key.to_string(),
                 value.key.span(),
             )]
             .into_iter()
@@ -92,7 +92,7 @@ impl<T: Into<Vec<Intermediate>> + Debug> From<Html<T>> for Vec<Intermediate> {
                 ]
                 .into_iter()
                 .chain(attributes.into_iter().flat_map(Vec::<Intermediate>::from))
-                .chain([Intermediate::Literal("<".to_owned(), open_end.span)])
+                .chain([Intermediate::Literal(">".to_owned(), open_end.span)])
                 .chain(
                     children
                         .map(|children| {
