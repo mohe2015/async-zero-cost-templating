@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use proc_macro2::{Span, TokenStream, TokenTree};
 use syn::{spanned::Spanned, token::Brace, Block};
 
@@ -45,7 +47,7 @@ impl From<HtmlAttribute> for Vec<Intermediate> {
     }
 }
 
-impl<T: Into<Vec<Intermediate>>> From<Html<T>> for Vec<Intermediate> {
+impl<T: Into<Vec<Intermediate>> + Debug> From<Html<T>> for Vec<Intermediate> {
     fn from(value: Html<T>) -> Self {
         match value {
             crate::parse::Html::Literal(literal) => {
