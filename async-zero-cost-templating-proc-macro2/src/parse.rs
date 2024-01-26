@@ -568,7 +568,7 @@ impl MyParse<HtmlAttribute> for ParseStream<'_> {
                             )?
                         } else if lookahead1.peek(Bracket) {
                             let then_span = self.cursor().token_stream().span();
-                            if let Ok((bracket, content)) = (|| {
+                            if let Ok((_bracket, content)) = (|| {
                                 let content;
                                 Ok((bracketed!(content in self), content))
                             })() {
