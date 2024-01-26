@@ -142,12 +142,14 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
                         },
                         None,
                     ),
-                    (Some((lit, span)), Intermediate::If(mut html_if)) => 
-                    (
+                    (Some((lit, span)), Intermediate::If(mut html_if)) => (
                         {
                             acc.push(Intermediate::Literal(lit, span));
                             html_if.then_branch.1 = simplify(html_if.then_branch.1);
-                            if let Some(mut else_) = html_if.else_branch { else_.2 = simplify(else_.2); html_if.else_branch = Some(else_); }
+                            if let Some(mut else_) = html_if.else_branch {
+                                else_.2 = simplify(else_.2);
+                                html_if.else_branch = Some(else_);
+                            }
                             acc.push(Intermediate::If(html_if));
                             acc
                         },
@@ -161,8 +163,7 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
                         },
                         None,
                     ),
-                    (None, Intermediate::For(mut children)) => 
-                    (
+                    (None, Intermediate::For(mut children)) => (
                         {
                             children.body.1 = simplify(children.body.1);
                             acc.push(Intermediate::For(children));
@@ -170,11 +171,13 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
                         },
                         None,
                     ),
-                    (None, Intermediate::If(mut html_if)) => 
-                    (
+                    (None, Intermediate::If(mut html_if)) => (
                         {
                             html_if.then_branch.1 = simplify(html_if.then_branch.1);
-                            if let Some(mut else_) = html_if.else_branch { else_.2 = simplify(else_.2); html_if.else_branch = Some(else_); }
+                            if let Some(mut else_) = html_if.else_branch {
+                                else_.2 = simplify(else_.2);
+                                html_if.else_branch = Some(else_);
+                            }
                             acc.push(Intermediate::If(html_if));
                             acc
                         },

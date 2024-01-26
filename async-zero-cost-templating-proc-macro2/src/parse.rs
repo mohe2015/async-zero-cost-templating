@@ -7,7 +7,12 @@ use std::{
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
-    braced, bracketed, ext::IdentExt, parse::{Parse, ParseStream}, spanned::Spanned, token::{Brace, Bracket, Else, For, If, In}, Ident, LitStr, Token
+    braced, bracketed,
+    ext::IdentExt,
+    parse::{Parse, ParseStream},
+    spanned::Spanned,
+    token::{Brace, Bracket, Else, For, If, In},
+    Ident, LitStr, Token,
 };
 use tracing::instrument;
 use tracing::{error, level_filters::LevelFilter};
@@ -183,7 +188,6 @@ impl Parse for HtmlTopLevel {
     }
 }
 
-
 impl MyParse<HtmlTopLevel> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "HtmlTopLevel")]
     fn inner_my_parse(self) -> Result<(HtmlTopLevel, Vec<Diagnostic>), Vec<Diagnostic>> {
@@ -211,10 +215,15 @@ impl MyParse<HtmlTopLevel> for ParseStream<'_> {
                 Err(_err) => {}
             }
         }
-        Ok((HtmlTopLevel { children: HtmlChildren { children }, diagnostics: Vec::new() }, diagnostics))
+        Ok((
+            HtmlTopLevel {
+                children: HtmlChildren { children },
+                diagnostics: Vec::new(),
+            },
+            diagnostics,
+        ))
     }
 }
-
 
 #[derive(Debug)]
 pub struct HtmlChildren {
@@ -753,9 +762,11 @@ impl MyParse<HtmlElement> for ParseStream<'_> {
             value
         };
         let children = {
-            if open_tag_name_text != "!doctype"
-                && open_tag_name_text != "meta"
-                && open_tag_name_text != "link"
+            if ![
+                "!doctype", "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+                "meta", "param", "source", "track", "wbr",
+            ]
+            .contains(&open_tag_name_text.as_str())
             {
                 Some((
                     {

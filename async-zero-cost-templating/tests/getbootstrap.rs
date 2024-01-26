@@ -2,8 +2,8 @@ use async_zero_cost_templating::html;
 use async_zero_cost_templating::TheStream;
 use bytes::Bytes;
 use core::pin::pin;
-use std::fs::File;
 use futures_util::stream::StreamExt;
+use std::fs::File;
 use std::io::Write;
 
 #[tokio::test]
