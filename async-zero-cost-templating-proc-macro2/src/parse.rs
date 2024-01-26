@@ -668,74 +668,80 @@ impl MyParse<HtmlElement> for ParseStream<'_> {
             value
         };
         let open_tag_name_text = open_tag_name.to_string();
+        let attributes = {
+            let mut attributes = Vec::new();
+            while !self.peek(Token![>]) {
+                let attribute_start_span = self.cursor().token_stream().span();
+                attributes.push({
+                    let value;
+                    (value, diagnostics) = MyParse::my_parse(
+                        self,
+                        identity,
+                        |diagnostic| {
+                            diagnostic
+                                .span_note(attribute_start_span, "while parsing attribute")
+                        },
+                        diagnostics,
+                    )?;
+                    value
+                });
+            }
+            attributes
+        };
+        let open_end = {
+            let value;
+            (value, diagnostics) =
+                MyParse::my_parse(self, identity, identity, diagnostics)?;
+            value
+        };
+        let children = {
+            if open_tag_name_text != "!doctype" {
+                Some((
+                    {
+                        let value;
+                        (value, diagnostics) =
+                            MyParse::my_parse(self, identity, identity, diagnostics)?;
+                        value
+                    },
+                    {
+                        let value;
+                        (value, diagnostics) =
+                            MyParse::my_parse(self, identity, |diagnostic| diagnostic.help(format!("maybe {open_tag_name_text} is supposed to be a self-closing tag but the template library doesn't know that?")), diagnostics)?;
+                        value
+                    },
+                    {
+                        let value;
+                        (value, diagnostics) =
+                            MyParse::my_parse(self, identity, identity, diagnostics)?;
+                        value
+                    },
+                    {
+                        let value: HtmlTag;
+                        (value, diagnostics) =
+                            MyParse::my_parse(self, identity, identity, diagnostics)?;
+                        if open_tag_name_text != value.to_string() {
+                            diagnostics.push(value.span().error("mismatched tag").span_error(open_tag_name.span(), "not matching"))
+                        }
+                        value
+                    },
+                    {
+                        let value;
+                        (value, diagnostics) =
+                            MyParse::my_parse(self, identity, identity, diagnostics)?;
+                        value
+                    },
+                ))
+            } else {
+                None
+            }
+        };
         Ok((
             HtmlElement {
                 open_start,
                 open_tag_name,
-                attributes: {
-                    let mut attributes = Vec::new();
-                    while !self.peek(Token![>]) {
-                        let attribute_start_span = self.cursor().token_stream().span();
-                        attributes.push({
-                            let value;
-                            (value, diagnostics) = MyParse::my_parse(
-                                self,
-                                identity,
-                                |diagnostic| {
-                                    diagnostic
-                                        .span_note(attribute_start_span, "while parsing attribute")
-                                },
-                                diagnostics,
-                            )?;
-                            value
-                        });
-                    }
-                    attributes
-                },
-                open_end: {
-                    let value;
-                    (value, diagnostics) =
-                        MyParse::my_parse(self, identity, identity, diagnostics)?;
-                    value
-                },
-                children: {
-                    if open_tag_name_text != "!doctype" {
-                        Some((
-                            {
-                                let value;
-                                (value, diagnostics) =
-                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
-                                value
-                            },
-                            {
-                                let value;
-                                (value, diagnostics) =
-                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
-                                value
-                            },
-                            {
-                                let value;
-                                (value, diagnostics) =
-                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
-                                value
-                            },
-                            {
-                                let value;
-                                (value, diagnostics) =
-                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
-                                value
-                            },
-                            {
-                                let value;
-                                (value, diagnostics) =
-                                    MyParse::my_parse(self, identity, identity, diagnostics)?;
-                                value
-                            },
-                        ))
-                    } else {
-                        None
-                    }
-                },
+                attributes,
+                open_end,
+                children,
             },
             diagnostics,
         ))
