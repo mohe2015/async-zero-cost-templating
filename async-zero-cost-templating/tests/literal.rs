@@ -1,4 +1,4 @@
-use async_zero_cost_templating::html_proc_macro;
+use async_zero_cost_templating::html;
 use async_zero_cost_templating::TheStream;
 use core::pin::pin;
 use futures_util::stream::StreamExt;
@@ -6,7 +6,7 @@ use std::io::Write;
 
 #[tokio::test]
 async fn test() {
-    let stream = html_proc_macro! {
+    let stream = html! {
         "hello world"
     };
     let mut stream = pin!(TheStream::new(stream));

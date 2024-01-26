@@ -1,7 +1,7 @@
-use async_zero_cost_templating::html_proc_macro;
+use async_zero_cost_templating::html;
 
 pub fn main() {
-    let _ = html_proc_macro! {
+    let _ = html! {
         <!doctype html>
         <html
     };

@@ -1,6 +1,6 @@
 mod future_to_stream;
 
-pub use async_zero_cost_templating_proc_macro::html_proc_macro;
+pub use async_zero_cost_templating_proc_macro::html;
 pub use future_to_stream::FutureToStream;
 pub use future_to_stream::TheStream;
 

@@ -1,4 +1,4 @@
-use async_zero_cost_templating::html_proc_macro;
+use async_zero_cost_templating::html;
 use async_zero_cost_templating::TheStream;
 use bytes::Bytes;
 use core::pin::pin;
@@ -15,7 +15,7 @@ async fn test() {
         Bytes::from_static(b"ghi"),
     ]);
     let morning = false;
-    let stream = html_proc_macro! {
+    let stream = html! {
         <!doctype html>
         <html lang="en">
         <head>

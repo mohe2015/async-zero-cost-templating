@@ -1,4 +1,4 @@
-use async_zero_cost_templating::html_proc_macro;
+use async_zero_cost_templating::html;
 use async_zero_cost_templating::TheStream;
 use bytes::Bytes;
 use core::pin::pin;
@@ -8,7 +8,7 @@ use std::io::Write;
 #[tokio::test]
 async fn test() {
     let value = Bytes::from_static(b"hi");
-    let stream = html_proc_macro! {
+    let stream = html! {
         <a href=["test" {value}]>"Link"</a>
     };
     let mut stream = pin!(TheStream::new(stream));
