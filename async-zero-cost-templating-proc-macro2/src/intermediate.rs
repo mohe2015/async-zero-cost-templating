@@ -133,17 +133,56 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
                         acc,
                         Some((lit1 + &lit2, span1.join(span2).unwrap_or(span1))),
                     ),
-                    (Some((lit, span)), next) => (
+                    (Some((lit, span)), Intermediate::For(mut children)) => (
                         {
                             acc.push(Intermediate::Literal(lit, span));
-                            acc.push(next);
+                            children.body.1 = simplify(children.body.1);
+                            acc.push(Intermediate::For(children));
                             acc
                         },
                         None,
                     ),
-                    (None, next) => (
+                    (Some((lit, span)), Intermediate::If(mut html_if)) => 
+                    (
                         {
-                            acc.push(next);
+                            acc.push(Intermediate::Literal(lit, span));
+                            html_if.then_branch.1 = simplify(html_if.then_branch.1);
+                            if let Some(mut else_) = html_if.else_branch { else_.2 = simplify(else_.2); html_if.else_branch = Some(else_); }
+                            acc.push(Intermediate::If(html_if));
+                            acc
+                        },
+                        None,
+                    ),
+                    (Some((lit, span)), Intermediate::Computed(computed)) => (
+                        {
+                            acc.push(Intermediate::Literal(lit, span));
+                            acc.push(Intermediate::Computed(computed));
+                            acc
+                        },
+                        None,
+                    ),
+                    (None, Intermediate::For(mut children)) => 
+                    (
+                        {
+                            children.body.1 = simplify(children.body.1);
+                            acc.push(Intermediate::For(children));
+                            acc
+                        },
+                        None,
+                    ),
+                    (None, Intermediate::If(mut html_if)) => 
+                    (
+                        {
+                            html_if.then_branch.1 = simplify(html_if.then_branch.1);
+                            if let Some(mut else_) = html_if.else_branch { else_.2 = simplify(else_.2); html_if.else_branch = Some(else_); }
+                            acc.push(Intermediate::If(html_if));
+                            acc
+                        },
+                        None,
+                    ),
+                    (None, Intermediate::Computed(value)) => (
+                        {
+                            acc.push(Intermediate::Computed(value));
                             acc
                         },
                         None,
