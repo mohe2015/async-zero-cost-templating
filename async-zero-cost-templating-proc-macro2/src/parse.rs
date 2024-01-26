@@ -132,7 +132,13 @@ pub fn transpose<T: Debug>(
 #[derive(Debug)]
 pub struct HtmlTopLevel {
     pub children: HtmlChildren,
-    pub diagnostics: Vec<Diagnostic>, // maybe do this for all?
+    pub diagnostics: Vec<Diagnostic>, // TODO FIXME put this somewhere else so its not used inside if and for
+}
+
+impl From<HtmlTopLevel> for Vec<Intermediate> {
+    fn from(value: HtmlTopLevel) -> Self {
+        value.children.into()
+    }
 }
 
 impl Parse for HtmlTopLevel {
@@ -170,9 +176,42 @@ impl Parse for HtmlTopLevel {
     }
 }
 
+
+impl MyParse<HtmlTopLevel> for ParseStream<'_> {
+    #[instrument(err(Debug), ret, name = "HtmlTopLevel")]
+    fn inner_my_parse(self) -> Result<(HtmlTopLevel, Vec<Diagnostic>), Vec<Diagnostic>> {
+        let span = self.cursor().token_stream().span();
+
+        let mut diagnostics = Vec::new();
+
+        let mut children = Vec::new();
+        while !self.is_empty() {
+            let child_start_span = self.cursor().token_stream().span();
+            let result;
+            (result, diagnostics) = transpose(self.my_parse(
+                identity,
+                |diagnostic| {
+                    diagnostic
+                        .span_note(child_start_span, "while parsing child")
+                        .span_note(span, "while parsing children")
+                },
+                diagnostics,
+            ));
+            match result {
+                Ok(child) => {
+                    children.push(child);
+                }
+                Err(_err) => {}
+            }
+        }
+        Ok((HtmlTopLevel { children: HtmlChildren { children }, diagnostics: Vec::new() }, diagnostics))
+    }
+}
+
+
 #[derive(Debug)]
 pub struct HtmlChildren {
-    pub children: Vec<Html<HtmlChildren>>,
+    pub children: Vec<Html<HtmlTopLevel>>,
 }
 
 impl MyParse<HtmlChildren> for ParseStream<'_> {
