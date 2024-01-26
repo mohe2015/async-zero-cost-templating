@@ -7,7 +7,11 @@ use std::{
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
-    braced, bracketed, parse::{Parse, ParseStream}, spanned::Spanned, token::{Brace, Bracket, Else, For, If, In}, Ident, LitStr, Token
+    braced, bracketed,
+    parse::{Parse, ParseStream},
+    spanned::Spanned,
+    token::{Brace, Bracket, Else, For, If, In},
+    Ident, LitStr, Token,
 };
 use tracing::instrument;
 use tracing::{error, level_filters::LevelFilter};
@@ -37,7 +41,8 @@ pub fn top_level_parse(input: TokenStream) -> TokenStream {
         Ok(ok) => ok,
         Err(err) => return err.into_compile_error(),
     };
-    let diagnostics = html_top_level.diagnostics
+    let diagnostics = html_top_level
+        .diagnostics
         .into_iter()
         .map(|diagnostic| diagnostic.emit_as_expr_tokens());
 
@@ -548,12 +553,16 @@ impl MyParse<HtmlAttribute> for ParseStream<'_> {
                         (eq, diagnostics) =
                             MyParse::my_parse(self, identity, identity, diagnostics)?;
                         let lookahead1 = self.lookahead1();
-                        
+
                         let value;
                         (value, diagnostics) = if lookahead1.peek(LitStr) {
                             MyParse::<LitStr>::my_parse(
                                 self,
-                                |value| HtmlAttributeValue { children: Vec::from([Html::<HtmlAttributeValue>::Literal(value)]) },
+                                |value| HtmlAttributeValue {
+                                    children: Vec::from([Html::<HtmlAttributeValue>::Literal(
+                                        value,
+                                    )]),
+                                },
                                 identity,
                                 diagnostics,
                             )?
@@ -563,14 +572,19 @@ impl MyParse<HtmlAttribute> for ParseStream<'_> {
                                 let content;
                                 Ok((bracketed!(content in self), content))
                             })() {
-                                MyParse::<HtmlAttributeValue>::my_parse(&content, identity, identity, diagnostics)?
+                                MyParse::<HtmlAttributeValue>::my_parse(
+                                    &content,
+                                    identity,
+                                    identity,
+                                    diagnostics,
+                                )?
                             } else {
                                 diagnostics.push(then_span.error("expected { }"));
                                 return Err(diagnostics);
                             }
                         } else {
                             diagnostics.push(Diagnostic::from(lookahead1.error()));
-                            return Err(diagnostics)
+                            return Err(diagnostics);
                         };
                         Some((eq, value))
                     } else {
@@ -678,8 +692,7 @@ impl MyParse<HtmlElement> for ParseStream<'_> {
                         self,
                         identity,
                         |diagnostic| {
-                            diagnostic
-                                .span_note(attribute_start_span, "while parsing attribute")
+                            diagnostic.span_note(attribute_start_span, "while parsing attribute")
                         },
                         diagnostics,
                     )?;
@@ -690,12 +703,14 @@ impl MyParse<HtmlElement> for ParseStream<'_> {
         };
         let open_end = {
             let value;
-            (value, diagnostics) =
-                MyParse::my_parse(self, identity, identity, diagnostics)?;
+            (value, diagnostics) = MyParse::my_parse(self, identity, identity, diagnostics)?;
             value
         };
         let children = {
-            if open_tag_name_text != "!doctype" {
+            if open_tag_name_text != "!doctype"
+                && open_tag_name_text != "meta"
+                && open_tag_name_text != "link"
+            {
                 Some((
                     {
                         let value;
@@ -705,8 +720,14 @@ impl MyParse<HtmlElement> for ParseStream<'_> {
                     },
                     {
                         let value;
-                        (value, diagnostics) =
-                            MyParse::my_parse(self, identity, |diagnostic| diagnostic.help(format!("maybe {open_tag_name_text} is supposed to be a self-closing tag but the template library doesn't know that?")), diagnostics)?;
+                        (value, diagnostics) = MyParse::my_parse(
+                            self,
+                            identity,
+                            |diagnostic| {
+                                diagnostic.help(format!("maybe {open_tag_name_text} is supposed to be a self-closing tag but the template library doesn't know that?"))
+                            },
+                            diagnostics,
+                        )?;
                         value
                     },
                     {
@@ -716,13 +737,17 @@ impl MyParse<HtmlElement> for ParseStream<'_> {
                         value
                     },
                     {
-                        let value: HtmlTag;
-                        (value, diagnostics) =
+                        let close_tag_name: HtmlTag;
+                        (close_tag_name, diagnostics) =
                             MyParse::my_parse(self, identity, identity, diagnostics)?;
-                        if open_tag_name_text != value.to_string() {
-                            diagnostics.push(value.span().error("mismatched tag").span_error(open_tag_name.span(), "not matching"))
+                        let close_tag_name_text = close_tag_name.to_string();
+                        if open_tag_name_text != close_tag_name.to_string() {
+                            diagnostics.push(open_tag_name.span()
+                            .error(format!("mismatched tag {open_tag_name_text}"))
+                            .span_error(close_tag_name.span(), format!("{} not matching {}", open_tag_name_text, close_tag_name_text))
+                            .help(format!("maybe {open_tag_name_text} is supposed to be a self-closing tag but the template library doesn't know that?")))
                         }
-                        value
+                        close_tag_name
                     },
                     {
                         let value;
