@@ -39,7 +39,7 @@ pub fn top_level_parse(input: TokenStream) -> TokenStream {
     // if this crashes then you probably didn't directly consume these but just extracted them which doesn't work
     let html_top_level: HtmlTopLevel = match syn::parse2(input) {
         Ok(ok) => ok,
-        Err(err) => return err.into_compile_error(),
+        Err(err) => return Diagnostic::from(err).error("this is a serde internal error, likely some nested method did read this but not actually consume it?").emit_as_expr_tokens(),
     };
     let diagnostics = html_top_level
         .diagnostics
