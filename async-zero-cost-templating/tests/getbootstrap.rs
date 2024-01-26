@@ -2,6 +2,7 @@ use async_zero_cost_templating::html_proc_macro;
 use async_zero_cost_templating::TheStream;
 use bytes::Bytes;
 use core::pin::pin;
+use std::fs::File;
 use futures_util::stream::StreamExt;
 use std::io::Write;
 
@@ -13,7 +14,7 @@ async fn test() {
         Bytes::from_static(b"def"),
         Bytes::from_static(b"ghi"),
     ]);
-    let greet = true;
+    let morning = false;
     let stream = html_proc_macro! {
         <!doctype html>
         <html lang="en">
@@ -25,23 +26,28 @@ async fn test() {
         </head>
         <body>
             <h1>
-                if greet {
-                    "Hello, world!"
+                if morning {
+                    "Good morning!"
                 } else {
-                    "Bye, world!"
+                    "Good night!"
                 }
             </h1>
             <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+            <ul>
             for row in &mut result {
-                { row }
+                <li>
+                    { row.slice(0..2) }
+                </li>
             }
+            </ul>
         </body>
         </html>
     };
     let mut stream = pin!(TheStream::new(stream));
-    let mut stdout = std::io::stdout().lock();
+    let mut file = File::create("test.html").unwrap();
     while let Some(element) = stream.next().await {
-        stdout.write_all(&element).unwrap();
+        file.write_all(&element).unwrap();
     }
-    stdout.write_all(b"\n").unwrap();
+    file.write_all(b"\n").unwrap();
+    file.flush().unwrap();
 }
