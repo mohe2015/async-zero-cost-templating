@@ -1,4 +1,4 @@
-error: unexpected end of input, expected identifier
+error: unexpected end of input, expected ident
  --> tests/ui/compile_fail/doctype.rs:4:13
   |
 4 |       let _ = html! {

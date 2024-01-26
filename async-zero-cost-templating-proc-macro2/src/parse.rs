@@ -7,11 +7,7 @@ use std::{
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
-    braced, bracketed,
-    parse::{Parse, ParseStream},
-    spanned::Spanned,
-    token::{Brace, Bracket, Else, For, If, In},
-    Ident, LitStr, Token,
+    braced, bracketed, ext::IdentExt, parse::{Parse, ParseStream}, spanned::Spanned, token::{Brace, Bracket, Else, For, If, In}, Ident, LitStr, Token
 };
 use tracing::instrument;
 use tracing::{error, level_filters::LevelFilter};
@@ -117,7 +113,18 @@ my_parse!(Option<Token![!]>);
 my_parse!(Token![=]);
 my_parse!(Token![in]);
 my_parse!(Token![for]);
-my_parse!(proc_macro2::Ident);
+impl MyParse<Ident> for ParseStream<'_> {
+    fn inner_my_parse(self) -> Result<(Ident, Vec<Diagnostic>), Vec<Diagnostic>>
+    where
+        Self: Sized,
+    {
+        let result = Ident::parse_any(self);
+        match result {
+            Ok(t) => Ok((t, Vec::new())),
+            Err(err) => Err(Vec::from([Diagnostic::from(err)])),
+        }
+    }
+}
 
 #[instrument(ret)]
 pub fn transpose<T: Debug>(
