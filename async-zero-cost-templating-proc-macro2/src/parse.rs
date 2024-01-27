@@ -7,12 +7,7 @@ use std::{
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
-    braced, bracketed,
-    ext::IdentExt,
-    parse::{Parse, ParseStream},
-    spanned::Spanned,
-    token::{Brace, Bracket, Else, For, If, In},
-    Ident, LitStr, Token,
+    braced, bracketed, ext::IdentExt, parenthesized, parse::{Parse, ParseStream}, spanned::Spanned, token::{Brace, Bracket, Else, For, If, In, Paren}, Ident, LitStr, Token
 };
 use tracing::instrument;
 use tracing::{error, level_filters::LevelFilter};
@@ -24,6 +19,8 @@ use crate::{
     codegen::top_level,
     intermediate::{simplify, Intermediate},
 };
+
+// see demo below, use { } for blocks of code and () for variable interpolation
 
 #[instrument(ret)]
 pub fn top_level_parse(input: TokenStream) -> TokenStream {
@@ -264,7 +261,8 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
 #[derive(Debug)]
 pub enum Html<Inner: Debug> {
     Literal(LitStr),
-    Computed((Brace, TokenStream)),
+    Computation((Brace, TokenStream)),
+    ComputedValue((Paren, TokenStream)),
     If(HtmlIf<Inner>),
     For(HtmlForLoop<Inner>),
     Element(HtmlElement),
@@ -307,7 +305,21 @@ where
                 Ok((braced!(content in self), content))
             })() {
                 Ok((
-                    Html::<Inner>::Computed((brace, content.parse().unwrap())),
+                    Html::<Inner>::Computation((brace, content.parse().unwrap())),
+                    diagnostics,
+                ))
+            } else {
+                diagnostics.push(then_span.error("expected { }"));
+                return Err(diagnostics);
+            }
+        } else if lookahead.peek(Bracket) {
+            let then_span = self.cursor().token_stream().span();
+            if let Ok((paren, content)) = (|| {
+                let content;
+                Ok((parenthesized!(content in self), content))
+            })() {
+                Ok((
+                    Html::<Inner>::ComputedValue((paren, content.parse().unwrap())),
                     diagnostics,
                 ))
             } else {
