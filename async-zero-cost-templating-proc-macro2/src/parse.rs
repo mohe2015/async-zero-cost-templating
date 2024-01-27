@@ -259,13 +259,30 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
 }
 
 #[derive(Debug)]
-pub enum Html<Inner: Debug> {
+pub enum HtmlInElementContext {
     Literal(LitStr),
     Computation((Brace, TokenStream)),
     ComputedValue((Paren, TokenStream)),
-    If(HtmlIf<Inner>),
-    For(HtmlForLoop<Inner>),
+    If(HtmlIf<Vec<HtmlInElementContext>>),
+    For(HtmlForLoop<Vec<HtmlInElementContext>>),
     Element(HtmlElement),
+}
+
+#[derive(Debug)]
+pub enum HtmlInAttributeValueContext {
+    Literal(LitStr),
+    Computation((Brace, TokenStream)),
+    ComputedValue((Paren, TokenStream)),
+    If(HtmlIf<Vec<HtmlInAttributeValueContext>>),
+    For(HtmlForLoop<Vec<HtmlInAttributeValueContext>>),
+}
+
+#[derive(Debug)]
+pub enum HtmlInAttributeContext {
+    Literal(LitStr),
+    Computation((Brace, TokenStream)),
+    If(HtmlIf<Vec<HtmlInAttributeValueContext>>),
+    For(HtmlForLoop<Vec<HtmlInAttributeValueContext>>),
 }
 
 impl<Inner: Debug> MyParse<Html<Inner>> for ParseStream<'_>
