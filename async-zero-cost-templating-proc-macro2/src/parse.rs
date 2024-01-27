@@ -285,33 +285,31 @@ pub enum HtmlInAttributeContext {
     For(HtmlForLoop<Vec<HtmlInAttributeValueContext>>),
 }
 
-impl<Inner: Debug> MyParse<Html<Inner>> for ParseStream<'_>
-where
-    for<'a> ParseStream<'a>: MyParse<Inner>,
+impl MyParse<HtmlInElementContext> for ParseStream<'_>
 {
     #[instrument(err(Debug), ret, name = "Html<Inner>")]
-    fn inner_my_parse(self) -> Result<(Html<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(HtmlInElementContext, Vec<Diagnostic>), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
         let lookahead = self.lookahead1();
         let span = self.cursor().token_stream().span();
         if lookahead.peek(LitStr) {
             Ok(MyParse::<LitStr>::my_parse(
                 self,
-                Html::<Inner>::Literal,
+                HtmlInElementContext::Literal,
                 |diagnostic| diagnostic,
                 diagnostics,
             )?)
         } else if lookahead.peek(Token![if]) {
             Ok(MyParse::<HtmlIf<Inner>>::my_parse(
                 self,
-                Html::<Inner>::If,
+                HtmlInElementContext::If,
                 |diagnostic| diagnostic.span_note(span, "while parsing if"),
                 diagnostics,
             )?)
         } else if lookahead.peek(Token![for]) {
             Ok(MyParse::<HtmlForLoop<Inner>>::my_parse(
                 self,
-                Html::<Inner>::For,
+                HtmlInElementContext::For,
                 |diagnostic| diagnostic.span_note(span, "while parsing for"),
                 diagnostics,
             )?)
@@ -322,7 +320,7 @@ where
                 Ok((braced!(content in self), content))
             })() {
                 Ok((
-                    Html::<Inner>::Computation((brace, content.parse().unwrap())),
+                    HtmlInElementContext::Computation((brace, content.parse().unwrap())),
                     diagnostics,
                 ))
             } else {
@@ -336,7 +334,7 @@ where
                 Ok((parenthesized!(content in self), content))
             })() {
                 Ok((
-                    Html::<Inner>::ComputedValue((paren, content.parse().unwrap())),
+                    HtmlInElementContext::ComputedValue((paren, content.parse().unwrap())),
                     diagnostics,
                 ))
             } else {
@@ -346,7 +344,7 @@ where
         } else if lookahead.peek(Token![<]) {
             Ok(MyParse::<HtmlElement>::my_parse(
                 self,
-                Html::<Inner>::Element,
+                HtmlInElementContext::Element,
                 |diagnostics| diagnostics.span_note(span, "while parsing element"),
                 diagnostics,
             )?)
