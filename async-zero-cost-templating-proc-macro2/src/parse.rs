@@ -224,7 +224,7 @@ impl MyParse<HtmlTopLevel> for ParseStream<'_> {
 
 #[derive(Debug)]
 pub struct HtmlChildren {
-    pub children: Vec<Html<HtmlTopLevel>>,
+    pub children: Vec<HtmlInElementContext<HtmlTopLevel>>,
 }
 
 impl MyParse<HtmlChildren> for ParseStream<'_> {
@@ -300,14 +300,14 @@ impl MyParse<HtmlInElementContext> for ParseStream<'_>
                 diagnostics,
             )?)
         } else if lookahead.peek(Token![if]) {
-            Ok(MyParse::<HtmlIf<Inner>>::my_parse(
+            Ok(MyParse::<HtmlIf<Vec<HtmlInElementContext>>>::my_parse(
                 self,
                 HtmlInElementContext::If,
                 |diagnostic| diagnostic.span_note(span, "while parsing if"),
                 diagnostics,
             )?)
         } else if lookahead.peek(Token![for]) {
-            Ok(MyParse::<HtmlForLoop<Inner>>::my_parse(
+            Ok(MyParse::<HtmlForLoop<Vec<HtmlInElementContext>>>::my_parse(
                 self,
                 HtmlInElementContext::For,
                 |diagnostic| diagnostic.span_note(span, "while parsing for"),
