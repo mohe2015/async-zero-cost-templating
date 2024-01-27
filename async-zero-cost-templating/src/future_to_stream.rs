@@ -12,12 +12,13 @@ thread_local! {
 }
 
 // Should not be publicly constructable
+#[derive(Copy, Clone)]
 pub struct FutureToStream(());
 
 impl FutureToStream {
-    pub fn _yield(&self, value: T) -> FutureToStream {
+    pub fn _yield(self, value: T) -> FutureToStream {
         VALUE.set(Some(value));
-        FutureToStream(())
+        self
     }
 }
 
