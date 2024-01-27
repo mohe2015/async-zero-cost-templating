@@ -12,7 +12,7 @@ async fn test() {
     let stream = html! {
         if condition {
             "true"
-            { variable }
+            ( variable )
         }
     };
     let mut stream = pin!(TheStream::new(stream));

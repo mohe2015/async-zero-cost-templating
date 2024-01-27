@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use proc_macro2::{Span, TokenStream};
-use syn::{spanned::Spanned, token::Brace};
+use syn::{spanned::Spanned, token::{Brace, Paren}};
 
 use crate::parse::{
     Html, HtmlAttribute, HtmlAttributeValue, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf,
@@ -9,7 +9,8 @@ use crate::parse::{
 
 pub enum Intermediate {
     Literal(String, Span),
-    Computed((Brace, TokenStream)),
+    Computation((Brace, TokenStream)),
+    ComputedValue((Paren, TokenStream)),
     If(HtmlIf<Vec<Intermediate>>),
     For(HtmlForLoop<Vec<Intermediate>>),
 }
@@ -54,7 +55,8 @@ impl<T: Into<Vec<Intermediate>> + Debug> From<Html<T>> for Vec<Intermediate> {
             crate::parse::Html::Literal(literal) => {
                 Vec::from([Intermediate::Literal(literal.value(), literal.span())])
             }
-            crate::parse::Html::Computed(computed) => Vec::from([Intermediate::Computed(computed)]),
+            crate::parse::Html::ComputedValue(computed_value) => Vec::from([Intermediate::ComputedValue(computed_value)]),
+            crate::parse::Html::Computation(computation) => Vec::from([Intermediate::Computation(computation)]),
             crate::parse::Html::If(HtmlIf {
                 if_token,
                 cond,
@@ -155,10 +157,18 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
                         },
                         None,
                     ),
-                    (Some((lit, span)), Intermediate::Computed(computed)) => (
+                    (Some((lit, span)), Intermediate::ComputedValue(computed)) => (
                         {
                             acc.push(Intermediate::Literal(lit, span));
-                            acc.push(Intermediate::Computed(computed));
+                            acc.push(Intermediate::ComputedValue(computed));
+                            acc
+                        },
+                        None,
+                    ),
+                    (Some((lit, span)), Intermediate::Computation(computation)) => (
+                        {
+                            acc.push(Intermediate::Literal(lit, span));
+                            acc.push(Intermediate::Computation(computation));
                             acc
                         },
                         None,
@@ -183,9 +193,16 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
                         },
                         None,
                     ),
-                    (None, Intermediate::Computed(value)) => (
+                    (None, Intermediate::ComputedValue(value)) => (
                         {
-                            acc.push(Intermediate::Computed(value));
+                            acc.push(Intermediate::ComputedValue(value));
+                            acc
+                        },
+                        None,
+                    ),
+                    (None, Intermediate::Computation(value)) => (
+                        {
+                            acc.push(Intermediate::Computation(value));
                             acc
                         },
                         None,

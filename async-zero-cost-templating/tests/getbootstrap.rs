@@ -21,7 +21,7 @@ async fn test() {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>{ title.await }</title>
+            <title>( title.await )</title>
             <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
         </head>
         <body>
@@ -36,7 +36,7 @@ async fn test() {
             <ul>
             for row in &mut result {
                 <li>
-                    { row.slice(0..2) }
+                    ( row.slice(0..2) )
                 </li>
             }
             </ul>

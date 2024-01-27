@@ -15,7 +15,7 @@ async fn test() {
     let stream = html! {
         for row in &mut result {
             "true"
-            { row }
+            ( row )
         }
     };
     let mut stream = pin!(TheStream::new(stream));

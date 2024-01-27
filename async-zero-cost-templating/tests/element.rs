@@ -9,7 +9,7 @@ use std::io::Write;
 async fn test() {
     let value = Bytes::from_static(b"hi");
     let stream = html! {
-        <a href=["test" {value}]>"Link"</a>
+        <a href=["test" (value)]>"Link"</a>
     };
     let mut stream = pin!(TheStream::new(stream));
     let mut stdout = std::io::stdout().lock();

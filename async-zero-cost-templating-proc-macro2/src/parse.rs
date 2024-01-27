@@ -312,7 +312,7 @@ where
                 diagnostics.push(then_span.error("expected { }"));
                 return Err(diagnostics);
             }
-        } else if lookahead.peek(Bracket) {
+        } else if lookahead.peek(Paren) {
             let then_span = self.cursor().token_stream().span();
             if let Ok((paren, content)) = (|| {
                 let content;

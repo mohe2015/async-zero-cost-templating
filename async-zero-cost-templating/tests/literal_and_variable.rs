@@ -10,7 +10,7 @@ async fn test() {
     let variable = Bytes::from_static(b"hi");
     let stream = html! {
         "hello world"
-        { variable }
+        ( variable )
     };
     let mut stream = pin!(TheStream::new(stream));
     let mut stdout = std::io::stdout().lock();

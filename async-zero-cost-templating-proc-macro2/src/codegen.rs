@@ -29,11 +29,16 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
                 stream._yield(::bytes::Bytes::from_static(#byte_string)).await;
             }
         }
-        Intermediate::Computed((_brace, computed)) => {
-            let span = computed.span();
-            // we would need to check whether this is a full expr (which is impossible on compile errors)
+        Intermediate::ComputedValue((_brace, computed_value)) => {
+            let span = computed_value.span();
             quote_spanned! {span=>
-                stream._yield(#[allow(unused_braces)] { #computed }).await;
+                stream._yield(#computed_value).await;
+            }
+        }
+        Intermediate::Computation((_brace, computed)) => {
+            let span = computed.span();
+            quote_spanned! {span=>
+                let () = { #computed };
             }
         }
         Intermediate::If(HtmlIf {
