@@ -43,6 +43,69 @@ impl From<HtmlAttribute> for Vec<Intermediate> {
     }
 }
 
+impl From<HtmlInAttributeValueContext> for Vec<Intermediate> {
+    fn from(value: HtmlInAttributeValueContext) -> Self {
+        match value {
+            crate::parse::HtmlInAttributeValueContext::Literal(literal) => {
+                Vec::from([Intermediate::Literal(literal.value(), literal.span())])
+            }
+            crate::parse::HtmlInAttributeValueContext::ComputedValue(computed_value) => {
+                Vec::from([Intermediate::ComputedValue(computed_value)])
+            }
+            crate::parse::HtmlInAttributeValueContext::Computation(computation) => {
+                Vec::from([Intermediate::Computation(computation)])
+            }
+            crate::parse::HtmlInAttributeValueContext::If(HtmlIf {
+                if_token,
+                cond,
+                then_branch,
+                else_branch,
+            }) => Vec::from([Intermediate::If(HtmlIf {
+                if_token,
+                cond,
+                then_branch: (
+                    then_branch.0,
+                    then_branch
+                        .1
+                        .into_iter()
+                        .flat_map(Vec::<Intermediate>::from)
+                        .collect(),
+                ),
+                else_branch: else_branch.map(|else_branch| {
+                    (
+                        else_branch.0,
+                        else_branch.1,
+                        else_branch
+                            .2
+                            .into_iter()
+                            .flat_map(Vec::<Intermediate>::from)
+                            .collect(),
+                    )
+                }),
+            })]),
+            crate::parse::HtmlInAttributeValueContext::For(HtmlForLoop {
+                for_token,
+                pat,
+                in_token,
+                expr,
+                body,
+            }) => Vec::from([Intermediate::For(HtmlForLoop {
+                for_token,
+                pat,
+                in_token,
+                expr,
+                body: (
+                    body.0,
+                    body.1
+                        .into_iter()
+                        .flat_map(Vec::<Intermediate>::from)
+                        .collect(),
+                ),
+            })]),
+        }
+    }
+}
+
 impl From<HtmlInElementContext> for Vec<Intermediate> {
     fn from(value: HtmlInElementContext) -> Self {
         match value {
