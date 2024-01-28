@@ -160,7 +160,6 @@ pub enum HtmlInElementContext {
     Element(HtmlElement),
 }
 
-// TODO FIXME impleemnt these
 #[derive(Debug)]
 pub enum HtmlInAttributeValueContext {
     Literal(LitStr),
@@ -196,14 +195,11 @@ pub struct HtmlForLoop<Inner> {
 }
 
 #[derive(Debug)]
-pub struct HtmlAttributeValue {
-    pub children: Vec<Html<HtmlAttributeValue>>,
-}
-#[derive(Debug)]
 pub struct HtmlAttribute {
     pub key: Ident,
-    pub value: Option<(Token![=], HtmlAttributeValue)>,
+    pub value: Option<(Token![=], Vec<HtmlInAttributeValueContext>)>,
 }
+
 #[derive(Debug)]
 pub struct HtmlTag {
     pub exclamation: Option<Token![!]>,
@@ -216,49 +212,12 @@ pub struct HtmlElement {
     pub open_tag_name: HtmlTag,
     pub attributes: Vec<HtmlAttribute>,
     pub open_end: Token![>],
-    pub children: Option<(HtmlChildren, Token![<], Token![/], HtmlTag, Token![>])>,
+    pub children: Option<(Vec<HtmlInElementContext>, Token![<], Token![/], HtmlTag, Token![>])>,
 }
 
-impl MyParse<HtmlTopLevel> for ParseStream<'_> {
+impl MyParse<Vec<HtmlInElementContext>> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "HtmlTopLevel")]
-    fn inner_my_parse(self) -> Result<(HtmlTopLevel, Vec<Diagnostic>), Vec<Diagnostic>> {
-        let span = self.cursor().token_stream().span();
-
-        let mut diagnostics = Vec::new();
-
-        let mut children = Vec::new();
-        while !self.is_empty() {
-            let child_start_span = self.cursor().token_stream().span();
-            let result;
-            (result, diagnostics) = transpose(self.my_parse(
-                identity,
-                |diagnostic| {
-                    diagnostic
-                        .span_note(child_start_span, "while parsing child")
-                        .span_note(span, "while parsing children")
-                },
-                diagnostics,
-            ));
-            match result {
-                Ok(child) => {
-                    children.push(child);
-                }
-                Err(_err) => {}
-            }
-        }
-        Ok((
-            HtmlTopLevel {
-                children: HtmlChildren { children },
-                diagnostics: Vec::new(),
-            },
-            diagnostics,
-        ))
-    }
-}
-
-impl MyParse<HtmlChildren> for ParseStream<'_> {
-    #[instrument(err(Debug), ret, name = "HtmlChildren")]
-    fn inner_my_parse(self) -> Result<(HtmlChildren, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(Vec<HtmlInElementContext>, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = self.cursor().token_stream().span();
 
         let mut diagnostics = Vec::new();
@@ -283,10 +242,12 @@ impl MyParse<HtmlChildren> for ParseStream<'_> {
                 Err(_err) => {}
             }
         }
-        Ok((HtmlChildren { children }, diagnostics))
+        Ok((
+            children,
+            diagnostics,
+        ))
     }
 }
-
 
 impl MyParse<HtmlInElementContext> for ParseStream<'_>
 {
@@ -561,9 +522,9 @@ where
 }
 
 
-impl MyParse<HtmlAttributeValue> for ParseStream<'_> {
+impl MyParse<Vec<HtmlInAttributeValueContext>> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "HtmlAttributeValue")]
-    fn inner_my_parse(self) -> Result<(HtmlAttributeValue, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(self) -> Result<(Vec<HtmlInAttributeValueContext>, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = self.cursor().token_stream().span();
 
         let mut diagnostics = Vec::new();
@@ -588,7 +549,7 @@ impl MyParse<HtmlAttributeValue> for ParseStream<'_> {
                 Err(_err) => {}
             }
         }
-        Ok((HtmlAttributeValue { children }, diagnostics))
+        Ok((children, diagnostics))
     }
 }
 
@@ -618,11 +579,10 @@ impl MyParse<HtmlAttribute> for ParseStream<'_> {
                         (value, diagnostics) = if lookahead1.peek(LitStr) {
                             MyParse::<LitStr>::my_parse(
                                 self,
-                                |value| HtmlAttributeValue {
-                                    children: Vec::from([Html::<HtmlAttributeValue>::Literal(
+                                |value| Vec::from([HtmlInAttributeValueContext::Literal(
                                         value,
                                     )]),
-                                },
+                                
                                 identity,
                                 diagnostics,
                             )?
@@ -632,7 +592,7 @@ impl MyParse<HtmlAttribute> for ParseStream<'_> {
                                 let content;
                                 Ok((bracketed!(content in self), content))
                             })() {
-                                MyParse::<HtmlAttributeValue>::my_parse(
+                                MyParse::<Vec<HtmlInAttributeValueContext>>::my_parse(
                                     &content,
                                     identity,
                                     identity,
