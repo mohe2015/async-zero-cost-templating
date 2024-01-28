@@ -1,10 +1,13 @@
 use std::fmt::Debug;
 
 use proc_macro2::{Span, TokenStream};
-use syn::{spanned::Spanned, token::{Brace, Paren}};
+use syn::{
+    spanned::Spanned,
+    token::{Brace, Paren},
+};
 
 use crate::parse::{
-    Html, HtmlAttribute, HtmlAttributeValue, HtmlChildren, HtmlElement, HtmlForLoop, HtmlIf,
+     HtmlAttribute, HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeValueContext, HtmlInElementContext
 };
 
 pub enum Intermediate {
@@ -13,16 +16,6 @@ pub enum Intermediate {
     ComputedValue((Paren, TokenStream)),
     If(HtmlIf<Vec<Intermediate>>),
     For(HtmlForLoop<Vec<Intermediate>>),
-}
-
-impl From<HtmlAttributeValue> for Vec<Intermediate> {
-    fn from(value: HtmlAttributeValue) -> Self {
-        value
-            .children
-            .into_iter()
-            .flat_map(Vec::<Intermediate>::from)
-            .collect()
-    }
 }
 
 impl From<HtmlAttribute> for Vec<Intermediate> {
@@ -49,15 +42,19 @@ impl From<HtmlAttribute> for Vec<Intermediate> {
     }
 }
 
-impl<T: Into<Vec<Intermediate>> + Debug> From<Html<T>> for Vec<Intermediate> {
-    fn from(value: Html<T>) -> Self {
+impl From<HtmlInElementContext> for Vec<Intermediate> {
+    fn from(value: HtmlInElementContext) -> Self {
         match value {
-            crate::parse::Html::Literal(literal) => {
+            crate::parse::HtmlInElementContext::Literal(literal) => {
                 Vec::from([Intermediate::Literal(literal.value(), literal.span())])
             }
-            crate::parse::Html::ComputedValue(computed_value) => Vec::from([Intermediate::ComputedValue(computed_value)]),
-            crate::parse::Html::Computation(computation) => Vec::from([Intermediate::Computation(computation)]),
-            crate::parse::Html::If(HtmlIf {
+            crate::parse::HtmlInElementContext::ComputedValue(computed_value) => {
+                Vec::from([Intermediate::ComputedValue(computed_value)])
+            }
+            crate::parse::HtmlInElementContext::Computation(computation) => {
+                Vec::from([Intermediate::Computation(computation)])
+            }
+            crate::parse::HtmlInElementContext::If(HtmlIf {
                 if_token,
                 cond,
                 then_branch,
@@ -69,7 +66,7 @@ impl<T: Into<Vec<Intermediate>> + Debug> From<Html<T>> for Vec<Intermediate> {
                 else_branch: else_branch
                     .map(|else_branch| (else_branch.0, else_branch.1, else_branch.2.into())),
             })]),
-            crate::parse::Html::For(HtmlForLoop {
+            crate::parse::HtmlInElementContext::For(HtmlForLoop {
                 for_token,
                 pat,
                 in_token,
@@ -82,7 +79,7 @@ impl<T: Into<Vec<Intermediate>> + Debug> From<Html<T>> for Vec<Intermediate> {
                 expr,
                 body: (body.0, body.1.into()),
             })]),
-            crate::parse::Html::Element(HtmlElement {
+            crate::parse::HtmlInElementContext::Element(HtmlElement {
                 open_start,
                 open_tag_name,
                 attributes,
@@ -111,16 +108,6 @@ impl<T: Into<Vec<Intermediate>> + Debug> From<Html<T>> for Vec<Intermediate> {
                 ),
             ),
         }
-    }
-}
-
-impl From<HtmlChildren> for Vec<Intermediate> {
-    fn from(value: HtmlChildren) -> Self {
-        value
-            .children
-            .into_iter()
-            .flat_map(Vec::<Intermediate>::from)
-            .collect()
     }
 }
 

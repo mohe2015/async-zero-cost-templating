@@ -7,7 +7,13 @@ use std::{
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
-    braced, bracketed, ext::IdentExt, parenthesized, parse::{Parse, ParseStream}, spanned::Spanned, token::{Brace, Bracket, Else, For, If, In, Paren}, Ident, LitStr, Token
+    braced, bracketed,
+    ext::IdentExt,
+    parenthesized,
+    parse::{Parse, ParseStream},
+    spanned::Spanned,
+    token::{Brace, Bracket, Else, For, If, In, Paren},
+    Ident, LitStr, Token,
 };
 use tracing::instrument;
 use tracing::{error, level_filters::LevelFilter};
@@ -33,7 +39,7 @@ pub fn top_level_parse(input: TokenStream) -> TokenStream {
 
     // this parse will only fail if we didn't fully consume the input
     // if this crashes then you probably didn't directly consume these but just extracted them which doesn't work
-    let html_top_level: HtmlTopLevel = match syn::parse2(input) {
+    let html_top_level: Vec<HtmlInElementContext> = match syn::parse2(input) {
         Ok(ok) => ok,
         Err(err) => return Diagnostic::from(err).error("this is a serde internal error, likely some nested method did not consume this token?").emit_as_expr_tokens(),
     };
@@ -140,13 +146,21 @@ pub fn transpose<T: Debug>(
 #[derive(Debug)]
 pub struct MyParseToParse<T> {
     pub value: T,
-    pub diagnostics: Vec<Diagnostic>
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 impl Parse for MyParseToParse<Vec<HtmlInElementContext>> {
     #[instrument(err(Debug), ret, name = "HtmlTopLevel")]
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        todo!();
+        let result =
+            MyParse::<Vec<HtmlInElementContext>>::my_parse(input, identity, identity, Vec::new());
+        match result {
+            Ok(ok) => Ok(MyParseToParse {
+                value: ok.0,
+                diagnostics: ok.1
+            }),
+            Err(err) => syn::Error::from(err),
+        }
     }
 }
 
@@ -212,12 +226,20 @@ pub struct HtmlElement {
     pub open_tag_name: HtmlTag,
     pub attributes: Vec<HtmlAttribute>,
     pub open_end: Token![>],
-    pub children: Option<(Vec<HtmlInElementContext>, Token![<], Token![/], HtmlTag, Token![>])>,
+    pub children: Option<(
+        Vec<HtmlInElementContext>,
+        Token![<],
+        Token![/],
+        HtmlTag,
+        Token![>],
+    )>,
 }
 
 impl MyParse<Vec<HtmlInElementContext>> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "HtmlTopLevel")]
-    fn inner_my_parse(self) -> Result<(Vec<HtmlInElementContext>, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(
+        self,
+    ) -> Result<(Vec<HtmlInElementContext>, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = self.cursor().token_stream().span();
 
         let mut diagnostics = Vec::new();
@@ -242,15 +264,11 @@ impl MyParse<Vec<HtmlInElementContext>> for ParseStream<'_> {
                 Err(_err) => {}
             }
         }
-        Ok((
-            children,
-            diagnostics,
-        ))
+        Ok((children, diagnostics))
     }
 }
 
-impl MyParse<HtmlInElementContext> for ParseStream<'_>
-{
+impl MyParse<HtmlInElementContext> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "Html<Inner>")]
     fn inner_my_parse(self) -> Result<(HtmlInElementContext, Vec<Diagnostic>), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
@@ -325,7 +343,6 @@ impl MyParse<HtmlInElementContext> for ParseStream<'_>
         }
     }
 }
-
 
 impl<Inner: Debug> MyParse<HtmlIf<Inner>> for ParseStream<'_>
 where
@@ -521,10 +538,11 @@ where
     }
 }
 
-
 impl MyParse<Vec<HtmlInAttributeValueContext>> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "HtmlAttributeValue")]
-    fn inner_my_parse(self) -> Result<(Vec<HtmlInAttributeValueContext>, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(
+        self,
+    ) -> Result<(Vec<HtmlInAttributeValueContext>, Vec<Diagnostic>), Vec<Diagnostic>> {
         let span = self.cursor().token_stream().span();
 
         let mut diagnostics = Vec::new();
@@ -553,7 +571,6 @@ impl MyParse<Vec<HtmlInAttributeValueContext>> for ParseStream<'_> {
     }
 }
 
-
 impl MyParse<HtmlAttribute> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "HtmlAttribute")]
     fn inner_my_parse(self) -> Result<(HtmlAttribute, Vec<Diagnostic>), Vec<Diagnostic>> {
@@ -579,10 +596,7 @@ impl MyParse<HtmlAttribute> for ParseStream<'_> {
                         (value, diagnostics) = if lookahead1.peek(LitStr) {
                             MyParse::<LitStr>::my_parse(
                                 self,
-                                |value| Vec::from([HtmlInAttributeValueContext::Literal(
-                                        value,
-                                    )]),
-                                
+                                |value| Vec::from([HtmlInAttributeValueContext::Literal(value)]),
                                 identity,
                                 diagnostics,
                             )?
