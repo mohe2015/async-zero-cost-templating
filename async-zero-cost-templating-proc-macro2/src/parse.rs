@@ -731,7 +731,7 @@ impl MyParse<Vec<HtmlInAttributeContext>> for ParseStream<'_> {
         let mut diagnostics = Vec::new();
 
         let mut children = Vec::new();
-        while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
+        while !self.is_empty() && !self.peek(Token![>]) {
             let child_start_span = self.cursor().token_stream().span();
             let result;
             (result, diagnostics) = transpose(self.my_parse(
