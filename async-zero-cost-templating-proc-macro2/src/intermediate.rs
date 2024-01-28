@@ -7,8 +7,7 @@ use syn::{
 };
 
 use crate::parse::{
-    HtmlAttribute, HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeValueContext,
-    HtmlInElementContext,
+    HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeContext, HtmlInAttributeValueContext, HtmlInElementContext
 };
 
 pub enum Intermediate {
@@ -19,27 +18,78 @@ pub enum Intermediate {
     For(HtmlForLoop<Vec<Intermediate>>),
 }
 
-impl From<HtmlAttribute> for Vec<Intermediate> {
-    fn from(value: HtmlAttribute) -> Self {
-        Vec::from_iter(
-            [Intermediate::Literal(
-                " ".to_owned() + &value.key.to_string(),
-                value.key.span(),
-            )]
-            .into_iter()
-            .chain(
-                value
-                    .value
-                    .map(|value| {
-                        [Intermediate::Literal(r#"=""#.to_owned(), value.0.span())]
-                            .into_iter()
-                            .chain(value.1.into_iter().flat_map(Vec::<Intermediate>::from))
-                            .chain([Intermediate::Literal(r#"""#.to_owned(), value.0.span())])
-                    })
-                    .into_iter()
-                    .flatten(),
+impl From<HtmlInAttributeContext> for Vec<Intermediate> {
+    fn from(value: HtmlInAttributeContext) -> Self {
+        match value {
+            HtmlInAttributeContext::Literal(key, value) => Vec::from_iter(
+                [Intermediate::Literal(
+                    " ".to_owned() + &key.to_string(),
+                    key.span(),
+                )]
+                .into_iter()
+                .chain(
+                   value
+                        .map(|value| {
+                            [Intermediate::Literal(r#"=""#.to_owned(), value.0.span())]
+                                .into_iter()
+                                .chain(value.1.into_iter().flat_map(Vec::<Intermediate>::from))
+                                .chain([Intermediate::Literal(r#"""#.to_owned(), value.0.span())])
+                        })
+                        .into_iter()
+                        .flatten(),
+                ),
             ),
-        )
+            HtmlInAttributeContext::Computation(computation) => {
+                Vec::from([Intermediate::Computation(computation)])
+            }
+            HtmlInAttributeContext::If(HtmlIf {
+                if_token,
+                cond,
+                then_branch,
+                else_branch,
+            }) => Vec::from([Intermediate::If(HtmlIf {
+                if_token,
+                cond,
+                then_branch: (
+                    then_branch.0,
+                    then_branch
+                        .1
+                        .into_iter()
+                        .flat_map(Vec::<Intermediate>::from)
+                        .collect(),
+                ),
+                else_branch: else_branch.map(|else_branch| {
+                    (
+                        else_branch.0,
+                        else_branch.1,
+                        else_branch
+                            .2
+                            .into_iter()
+                            .flat_map(Vec::<Intermediate>::from)
+                            .collect(),
+                    )
+                }),
+            })]),
+            HtmlInAttributeContext::For(HtmlForLoop {
+                for_token,
+                pat,
+                in_token,
+                expr,
+                body,
+            }) => Vec::from([Intermediate::For(HtmlForLoop {
+                for_token,
+                pat,
+                in_token,
+                expr,
+                body: (
+                    body.0,
+                    body.1
+                        .into_iter()
+                        .flat_map(Vec::<Intermediate>::from)
+                        .collect(),
+                ),
+            })]),
+        }
     }
 }
 
