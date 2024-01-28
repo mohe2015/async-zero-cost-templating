@@ -407,6 +407,7 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
                     diagnostics,
                 )?,
             )
+        // TODO FIXME dammit this is our keyword and its a used html attribute key
         } else if lookahead.peek(Token![for]) {
             Ok(
                 MyParse::<HtmlForLoop<Vec<HtmlInAttributeContext>>>::my_parse(

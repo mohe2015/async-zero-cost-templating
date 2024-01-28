@@ -9,7 +9,7 @@ use std::io::Write;
 async fn test() {
     let condition = false;
     let stream = html! {
-        <label for="title">"Title:"</label>
+        <label for></label>
     };
     let mut stream = pin!(TheStream::new(stream));
     let mut stdout = std::io::stdout().lock();
