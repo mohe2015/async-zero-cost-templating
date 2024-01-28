@@ -240,38 +240,6 @@ pub struct HtmlElement {
     )>,
 }
 
-impl MyParse<Vec<HtmlInElementContext>> for ParseStream<'_> {
-    #[instrument(err(Debug), ret, name = "HtmlTopLevel")]
-    fn inner_my_parse(
-        self,
-    ) -> Result<(Vec<HtmlInElementContext>, Vec<Diagnostic>), Vec<Diagnostic>> {
-        let span = self.cursor().token_stream().span();
-
-        let mut diagnostics = Vec::new();
-
-        let mut children = Vec::new();
-        while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
-            let child_start_span = self.cursor().token_stream().span();
-            let result;
-            (result, diagnostics) = transpose(self.my_parse(
-                identity,
-                |diagnostic| {
-                    diagnostic
-                        .span_note(child_start_span, "while parsing child")
-                        .span_note(span, "while parsing children")
-                },
-                diagnostics,
-            ));
-            match result {
-                Ok(child) => {
-                    children.push(child);
-                }
-                Err(_err) => {}
-            }
-        }
-        Ok((children, diagnostics))
-    }
-}
 
 impl MyParse<HtmlInElementContext> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "Html<Inner>")]
@@ -431,7 +399,7 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
         let lookahead = self.lookahead1();
         let span = self.cursor().token_stream().span();
         if lookahead.peek(Ident::peek_any) {
-            HtmlInAttributeContext::Literal(
+            Ok((HtmlInAttributeContext::Literal(
                 {
                     let value;
                     (value, diagnostics) =
@@ -479,7 +447,7 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
                         None
                     }
                 },
-            )
+            ), diagnostics))
         } else if lookahead.peek(Token![if]) {
             Ok(
                 MyParse::<HtmlIf<Vec<HtmlInAttributeContext>>>::my_parse(
@@ -506,20 +474,6 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
             })() {
                 Ok((
                     HtmlInAttributeContext::Computation((brace, content.parse().unwrap())),
-                    diagnostics,
-                ))
-            } else {
-                diagnostics.push(then_span.error("expected { }"));
-                return Err(diagnostics);
-            }
-        } else if lookahead.peek(Paren) {
-            let then_span = self.cursor().token_stream().span();
-            if let Ok((paren, content)) = (|| {
-                let content;
-                Ok((parenthesized!(content in self), content))
-            })() {
-                Ok((
-                    HtmlInAttributeContext::ComputedValue((paren, content.parse().unwrap())),
                     diagnostics,
                 ))
             } else {
@@ -731,6 +685,72 @@ where
             diagnostics.push(loop_span.error("expected { }"));
             return Err(diagnostics);
         }
+    }
+}
+
+impl MyParse<Vec<HtmlInElementContext>> for ParseStream<'_> {
+    #[instrument(err(Debug), ret, name = "HtmlTopLevel")]
+    fn inner_my_parse(
+        self,
+    ) -> Result<(Vec<HtmlInElementContext>, Vec<Diagnostic>), Vec<Diagnostic>> {
+        let span = self.cursor().token_stream().span();
+
+        let mut diagnostics = Vec::new();
+
+        let mut children = Vec::new();
+        while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
+            let child_start_span = self.cursor().token_stream().span();
+            let result;
+            (result, diagnostics) = transpose(self.my_parse(
+                identity,
+                |diagnostic| {
+                    diagnostic
+                        .span_note(child_start_span, "while parsing child")
+                        .span_note(span, "while parsing children")
+                },
+                diagnostics,
+            ));
+            match result {
+                Ok(child) => {
+                    children.push(child);
+                }
+                Err(_err) => {}
+            }
+        }
+        Ok((children, diagnostics))
+    }
+}
+
+impl MyParse<Vec<HtmlInAttributeContext>> for ParseStream<'_> {
+    #[instrument(err(Debug), ret, name = "HtmlTopLevel")]
+    fn inner_my_parse(
+        self,
+    ) -> Result<(Vec<HtmlInAttributeContext>, Vec<Diagnostic>), Vec<Diagnostic>> {
+        let span = self.cursor().token_stream().span();
+
+        let mut diagnostics = Vec::new();
+
+        let mut children = Vec::new();
+        while !self.is_empty() && !(self.peek(Token![<]) && self.peek2(Token![/])) {
+            let child_start_span = self.cursor().token_stream().span();
+            let result;
+            (result, diagnostics) = transpose(self.my_parse(
+                identity,
+                |diagnostic| {
+                    diagnostic
+                        .span_note(child_start_span, "while parsing attribute")
+                        .span_note(span, "while parsing attribute")
+                },
+                diagnostics,
+            ));
+            match result {
+                Ok(child) => {
+                    children.push(child);
+                }
+                Err(_err) => {}
+            }
+        }
+        Ok((children, diagnostics))
     }
 }
 

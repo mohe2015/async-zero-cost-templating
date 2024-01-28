@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use proc_macro2::{Span, TokenStream};
 use syn::{
     spanned::Spanned,
