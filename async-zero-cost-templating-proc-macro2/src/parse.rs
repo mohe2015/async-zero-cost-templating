@@ -196,7 +196,7 @@ pub enum HtmlInAttributeValueContext {
 
 #[derive(Debug)]
 pub enum HtmlInAttributeContext {
-    Literal(LitStr),
+    Literal(Ident, Option<(Token![=], Vec<HtmlInAttributeValueContext>)>),
     Computation((Brace, TokenStream)),
     If(HtmlIf<Vec<HtmlInAttributeContext>>),
     For(HtmlForLoop<Vec<HtmlInAttributeContext>>),
@@ -220,12 +220,6 @@ pub struct HtmlForLoop<Inner> {
 }
 
 #[derive(Debug)]
-pub struct HtmlAttribute {
-    pub key: Ident,
-    pub value: Option<(Token![=], Vec<HtmlInAttributeValueContext>)>,
-}
-
-#[derive(Debug)]
 pub struct HtmlTag {
     pub exclamation: Option<Token![!]>,
     pub name: Ident,
@@ -235,7 +229,7 @@ pub struct HtmlTag {
 pub struct HtmlElement {
     pub open_start: Token![<],
     pub open_tag_name: HtmlTag,
-    pub attributes: Vec<HtmlAttribute>,
+    pub attributes: Vec<HtmlInAttributeContext>,
     pub open_end: Token![>],
     pub children: Option<(
         Vec<HtmlInElementContext>,
@@ -355,10 +349,11 @@ impl MyParse<HtmlInElementContext> for ParseStream<'_> {
     }
 }
 
-
 impl MyParse<HtmlInAttributeValueContext> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "Html<Inner>")]
-    fn inner_my_parse(self) -> Result<(HtmlInAttributeValueContext, Vec<Diagnostic>), Vec<Diagnostic>> {
+    fn inner_my_parse(
+        self,
+    ) -> Result<(HtmlInAttributeValueContext, Vec<Diagnostic>), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
         let lookahead = self.lookahead1();
         let span = self.cursor().token_stream().span();
@@ -370,19 +365,23 @@ impl MyParse<HtmlInAttributeValueContext> for ParseStream<'_> {
                 diagnostics,
             )?)
         } else if lookahead.peek(Token![if]) {
-            Ok(MyParse::<HtmlIf<Vec<HtmlInAttributeValueContext>>>::my_parse(
-                self,
-                HtmlInAttributeValueContext::If,
-                |diagnostic| diagnostic.span_note(span, "while parsing if"),
-                diagnostics,
-            )?)
+            Ok(
+                MyParse::<HtmlIf<Vec<HtmlInAttributeValueContext>>>::my_parse(
+                    self,
+                    HtmlInAttributeValueContext::If,
+                    |diagnostic| diagnostic.span_note(span, "while parsing if"),
+                    diagnostics,
+                )?,
+            )
         } else if lookahead.peek(Token![for]) {
-            Ok(MyParse::<HtmlForLoop<Vec<HtmlInAttributeValueContext>>>::my_parse(
-                self,
-                HtmlInAttributeValueContext::For,
-                |diagnostic| diagnostic.span_note(span, "while parsing for"),
-                diagnostics,
-            )?)
+            Ok(
+                MyParse::<HtmlForLoop<Vec<HtmlInAttributeValueContext>>>::my_parse(
+                    self,
+                    HtmlInAttributeValueContext::For,
+                    |diagnostic| diagnostic.span_note(span, "while parsing for"),
+                    diagnostics,
+                )?,
+            )
         } else if lookahead.peek(Brace) {
             let then_span = self.cursor().token_stream().span();
             if let Ok((brace, content)) = (|| {
@@ -421,6 +420,66 @@ impl MyParse<HtmlInAttributeValueContext> for ParseStream<'_> {
             })
             .unwrap();
             Err(Vec::from([Diagnostic::from(lookahead.error())]))
+        }
+    }
+}
+
+impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
+    #[instrument(err(Debug), ret, name = "Html<Inner>")]
+    fn inner_my_parse(self) -> Result<(HtmlInAttributeContext, Vec<Diagnostic>), Vec<Diagnostic>> {
+        let mut diagnostics = Vec::new();
+        let lookahead = self.lookahead1();
+        let span = self.cursor().token_stream().span();
+        if lookahead.peek(Ident::peek_any) {
+            HtmlInAttributeContext::Literal(
+                {
+                    let value;
+                    (value, diagnostics) =
+                        MyParse::my_parse(self, identity, identity, diagnostics)?;
+                    value
+                },
+                {
+                    if self.peek(Token![=]) {
+                        // TODO FIXME check for string or []
+                        let eq: Token![=];
+                        (eq, diagnostics) =
+                            MyParse::my_parse(self, identity, identity, diagnostics)?;
+                        let lookahead1 = self.lookahead1();
+
+                        let value;
+                        (value, diagnostics) = if lookahead1.peek(LitStr) {
+                            MyParse::<LitStr>::my_parse(
+                                self,
+                                |value| Vec::from([HtmlInAttributeValueContext::Literal(value)]),
+                                identity,
+                                diagnostics,
+                            )?
+                        } else if lookahead1.peek(Bracket) {
+                            let then_span = self.cursor().token_stream().span();
+                            if let Ok((_bracket, content)) = (|| {
+                                let content;
+                                Ok((bracketed!(content in self), content))
+                            })() {
+                                MyParse::<Vec<HtmlInAttributeValueContext>>::my_parse(
+                                    &content,
+                                    identity,
+                                    identity,
+                                    diagnostics,
+                                )?
+                            } else {
+                                diagnostics.push(then_span.error("expected { }"));
+                                return Err(diagnostics);
+                            }
+                        } else {
+                            diagnostics.push(Diagnostic::from(lookahead1.error()));
+                            return Err(diagnostics);
+                        };
+                        Some((eq, value))
+                    } else {
+                        None
+                    }
+                },
+            )
         }
     }
 }
@@ -649,66 +708,6 @@ impl MyParse<Vec<HtmlInAttributeValueContext>> for ParseStream<'_> {
             }
         }
         Ok((children, diagnostics))
-    }
-}
-
-impl MyParse<HtmlAttribute> for ParseStream<'_> {
-    #[instrument(err(Debug), ret, name = "HtmlAttribute")]
-    fn inner_my_parse(self) -> Result<(HtmlAttribute, Vec<Diagnostic>), Vec<Diagnostic>> {
-        let mut diagnostics = Vec::new();
-
-        Ok((
-            HtmlAttribute {
-                key: {
-                    let value;
-                    (value, diagnostics) =
-                        MyParse::my_parse(self, identity, identity, diagnostics)?;
-                    value
-                },
-                value: {
-                    if self.peek(Token![=]) {
-                        // TODO FIXME check for string or []
-                        let eq: Token![=];
-                        (eq, diagnostics) =
-                            MyParse::my_parse(self, identity, identity, diagnostics)?;
-                        let lookahead1 = self.lookahead1();
-
-                        let value;
-                        (value, diagnostics) = if lookahead1.peek(LitStr) {
-                            MyParse::<LitStr>::my_parse(
-                                self,
-                                |value| Vec::from([HtmlInAttributeValueContext::Literal(value)]),
-                                identity,
-                                diagnostics,
-                            )?
-                        } else if lookahead1.peek(Bracket) {
-                            let then_span = self.cursor().token_stream().span();
-                            if let Ok((_bracket, content)) = (|| {
-                                let content;
-                                Ok((bracketed!(content in self), content))
-                            })() {
-                                MyParse::<Vec<HtmlInAttributeValueContext>>::my_parse(
-                                    &content,
-                                    identity,
-                                    identity,
-                                    diagnostics,
-                                )?
-                            } else {
-                                diagnostics.push(then_span.error("expected { }"));
-                                return Err(diagnostics);
-                            }
-                        } else {
-                            diagnostics.push(Diagnostic::from(lookahead1.error()));
-                            return Err(diagnostics);
-                        };
-                        Some((eq, value))
-                    } else {
-                        None
-                    }
-                },
-            },
-            diagnostics,
-        ))
     }
 }
 
