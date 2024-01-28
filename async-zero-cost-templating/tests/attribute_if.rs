@@ -7,8 +7,7 @@ use std::io::Write;
 
 #[tokio::test]
 async fn test() {
-    let condition = true;
-    let variable = Bytes::from_static(b"hi");
+    let condition = false;
     let stream = html! {
         <input if condition {
             value="/test"

@@ -398,7 +398,25 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
         let mut diagnostics = Vec::new();
         let lookahead = self.lookahead1();
         let span = self.cursor().token_stream().span();
-        if lookahead.peek(Ident::peek_any) {
+        if lookahead.peek(Token![if]) {
+            Ok(
+                MyParse::<HtmlIf<Vec<HtmlInAttributeContext>>>::my_parse(
+                    self,
+                    HtmlInAttributeContext::If,
+                    |diagnostic| diagnostic.span_note(span, "while parsing if"),
+                    diagnostics,
+                )?,
+            )
+        } else if lookahead.peek(Token![for]) {
+            Ok(
+                MyParse::<HtmlForLoop<Vec<HtmlInAttributeContext>>>::my_parse(
+                    self,
+                    HtmlInAttributeContext::For,
+                    |diagnostic| diagnostic.span_note(span, "while parsing for"),
+                    diagnostics,
+                )?,
+            )
+        } else if lookahead.peek(Ident::peek_any) {
             Ok((HtmlInAttributeContext::Literal(
                 {
                     let value;
@@ -448,25 +466,7 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
                     }
                 },
             ), diagnostics))
-        } else if lookahead.peek(Token![if]) {
-            Ok(
-                MyParse::<HtmlIf<Vec<HtmlInAttributeContext>>>::my_parse(
-                    self,
-                    HtmlInAttributeContext::If,
-                    |diagnostic| diagnostic.span_note(span, "while parsing if"),
-                    diagnostics,
-                )?,
-            )
-        } else if lookahead.peek(Token![for]) {
-            Ok(
-                MyParse::<HtmlForLoop<Vec<HtmlInAttributeContext>>>::my_parse(
-                    self,
-                    HtmlInAttributeContext::For,
-                    |diagnostic| diagnostic.span_note(span, "while parsing for"),
-                    diagnostics,
-                )?,
-            )
-        } else if lookahead.peek(Brace) {
+        }  else if lookahead.peek(Brace) {
             let then_span = self.cursor().token_stream().span();
             if let Ok((brace, content)) = (|| {
                 let content;
