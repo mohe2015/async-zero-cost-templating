@@ -7,7 +7,8 @@ use syn::{
 };
 
 use crate::parse::{
-     HtmlAttribute, HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeValueContext, HtmlInElementContext
+    HtmlAttribute, HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeValueContext,
+    HtmlInElementContext,
 };
 
 pub enum Intermediate {
@@ -32,7 +33,7 @@ impl From<HtmlAttribute> for Vec<Intermediate> {
                     .map(|value| {
                         [Intermediate::Literal(r#"=""#.to_owned(), value.0.span())]
                             .into_iter()
-                            .chain(Vec::<Intermediate>::from(value.1))
+                            .chain(value.1.into_iter().flat_map(Vec::<Intermediate>::from))
                             .chain([Intermediate::Literal(r#"""#.to_owned(), value.0.span())])
                     })
                     .into_iter()
@@ -62,9 +63,25 @@ impl From<HtmlInElementContext> for Vec<Intermediate> {
             }) => Vec::from([Intermediate::If(HtmlIf {
                 if_token,
                 cond,
-                then_branch: (then_branch.0, then_branch.1.into()),
-                else_branch: else_branch
-                    .map(|else_branch| (else_branch.0, else_branch.1, else_branch.2.into())),
+                then_branch: (
+                    then_branch.0,
+                    then_branch
+                        .1
+                        .into_iter()
+                        .flat_map(Vec::<Intermediate>::from)
+                        .collect(),
+                ),
+                else_branch: else_branch.map(|else_branch| {
+                    (
+                        else_branch.0,
+                        else_branch.1,
+                        else_branch
+                            .2
+                            .into_iter()
+                            .flat_map(Vec::<Intermediate>::from)
+                            .collect(),
+                    )
+                }),
             })]),
             crate::parse::HtmlInElementContext::For(HtmlForLoop {
                 for_token,
@@ -77,7 +94,13 @@ impl From<HtmlInElementContext> for Vec<Intermediate> {
                 pat,
                 in_token,
                 expr,
-                body: (body.0, body.1.into()),
+                body: (
+                    body.0,
+                    body.1
+                        .into_iter()
+                        .flat_map(Vec::<Intermediate>::from)
+                        .collect(),
+                ),
             })]),
             crate::parse::HtmlInElementContext::Element(HtmlElement {
                 open_start,
@@ -96,12 +119,19 @@ impl From<HtmlInElementContext> for Vec<Intermediate> {
                 .chain(
                     children
                         .map(|children| {
-                            Vec::<Intermediate>::from(children.0).into_iter().chain([
-                                Intermediate::Literal("<".to_owned(), children.1.span()),
-                                Intermediate::Literal("/".to_owned(), children.2.span()),
-                                Intermediate::Literal(children.3.to_string(), children.3.span()),
-                                Intermediate::Literal(">".to_owned(), children.4.span()),
-                            ])
+                            children
+                                .0
+                                .into_iter()
+                                .flat_map(Vec::<Intermediate>::from)
+                                .chain([
+                                    Intermediate::Literal("<".to_owned(), children.1.span()),
+                                    Intermediate::Literal("/".to_owned(), children.2.span()),
+                                    Intermediate::Literal(
+                                        children.3.to_string(),
+                                        children.3.span(),
+                                    ),
+                                    Intermediate::Literal(">".to_owned(), children.4.span()),
+                                ])
                         })
                         .into_iter()
                         .flatten(),

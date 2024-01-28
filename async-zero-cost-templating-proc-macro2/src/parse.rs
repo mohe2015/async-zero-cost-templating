@@ -39,7 +39,7 @@ pub fn top_level_parse(input: TokenStream) -> TokenStream {
 
     // this parse will only fail if we didn't fully consume the input
     // if this crashes then you probably didn't directly consume these but just extracted them which doesn't work
-    let html_top_level: Vec<HtmlInElementContext> = match syn::parse2(input) {
+    let html_top_level: MyParseToParse<Vec<HtmlInElementContext>> = match syn::parse2(input) {
         Ok(ok) => ok,
         Err(err) => return Diagnostic::from(err).error("this is a serde internal error, likely some nested method did not consume this token?").emit_as_expr_tokens(),
     };
@@ -48,7 +48,11 @@ pub fn top_level_parse(input: TokenStream) -> TokenStream {
         .into_iter()
         .map(|diagnostic| diagnostic.emit_as_expr_tokens());
 
-    let intermediate = Vec::<Intermediate>::from(html_top_level.children);
+    let intermediate = html_top_level
+        .value
+        .into_iter()
+        .flat_map(Vec::<Intermediate>::from)
+        .collect();
     let intermediate = simplify(intermediate);
 
     let output = top_level(intermediate);
@@ -157,9 +161,16 @@ impl Parse for MyParseToParse<Vec<HtmlInElementContext>> {
         match result {
             Ok(ok) => Ok(MyParseToParse {
                 value: ok.0,
-                diagnostics: ok.1
+                diagnostics: ok.1,
             }),
-            Err(err) => syn::Error::from(err),
+            Err(err) => Err(err
+                .into_iter()
+                .map(syn::Error::from)
+                .reduce(|mut a, b| {
+                    a.combine(b);
+                    a
+                })
+                .unwrap()),
         }
     }
 }
