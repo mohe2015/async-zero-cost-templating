@@ -480,6 +480,62 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
                     }
                 },
             )
+        } else if lookahead.peek(Token![if]) {
+            Ok(
+                MyParse::<HtmlIf<Vec<HtmlInAttributeContext>>>::my_parse(
+                    self,
+                    HtmlInAttributeContext::If,
+                    |diagnostic| diagnostic.span_note(span, "while parsing if"),
+                    diagnostics,
+                )?,
+            )
+        } else if lookahead.peek(Token![for]) {
+            Ok(
+                MyParse::<HtmlForLoop<Vec<HtmlInAttributeContext>>>::my_parse(
+                    self,
+                    HtmlInAttributeContext::For,
+                    |diagnostic| diagnostic.span_note(span, "while parsing for"),
+                    diagnostics,
+                )?,
+            )
+        } else if lookahead.peek(Brace) {
+            let then_span = self.cursor().token_stream().span();
+            if let Ok((brace, content)) = (|| {
+                let content;
+                Ok((braced!(content in self), content))
+            })() {
+                Ok((
+                    HtmlInAttributeContext::Computation((brace, content.parse().unwrap())),
+                    diagnostics,
+                ))
+            } else {
+                diagnostics.push(then_span.error("expected { }"));
+                return Err(diagnostics);
+            }
+        } else if lookahead.peek(Paren) {
+            let then_span = self.cursor().token_stream().span();
+            if let Ok((paren, content)) = (|| {
+                let content;
+                Ok((parenthesized!(content in self), content))
+            })() {
+                Ok((
+                    HtmlInAttributeContext::ComputedValue((paren, content.parse().unwrap())),
+                    diagnostics,
+                ))
+            } else {
+                diagnostics.push(then_span.error("expected { }"));
+                return Err(diagnostics);
+            }
+        } else {
+            self.step(|cursor| {
+                if let Some((_, next)) = cursor.token_tree() {
+                    Ok(((), next))
+                } else {
+                    Ok(((), *cursor))
+                }
+            })
+            .unwrap();
+            Err(Vec::from([Diagnostic::from(lookahead.error())]))
         }
     }
 }
