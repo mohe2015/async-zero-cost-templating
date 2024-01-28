@@ -355,6 +355,76 @@ impl MyParse<HtmlInElementContext> for ParseStream<'_> {
     }
 }
 
+
+impl MyParse<HtmlInAttributeValueContext> for ParseStream<'_> {
+    #[instrument(err(Debug), ret, name = "Html<Inner>")]
+    fn inner_my_parse(self) -> Result<(HtmlInAttributeValueContext, Vec<Diagnostic>), Vec<Diagnostic>> {
+        let mut diagnostics = Vec::new();
+        let lookahead = self.lookahead1();
+        let span = self.cursor().token_stream().span();
+        if lookahead.peek(LitStr) {
+            Ok(MyParse::<LitStr>::my_parse(
+                self,
+                HtmlInAttributeValueContext::Literal,
+                |diagnostic| diagnostic,
+                diagnostics,
+            )?)
+        } else if lookahead.peek(Token![if]) {
+            Ok(MyParse::<HtmlIf<Vec<HtmlInAttributeValueContext>>>::my_parse(
+                self,
+                HtmlInAttributeValueContext::If,
+                |diagnostic| diagnostic.span_note(span, "while parsing if"),
+                diagnostics,
+            )?)
+        } else if lookahead.peek(Token![for]) {
+            Ok(MyParse::<HtmlForLoop<Vec<HtmlInAttributeValueContext>>>::my_parse(
+                self,
+                HtmlInAttributeValueContext::For,
+                |diagnostic| diagnostic.span_note(span, "while parsing for"),
+                diagnostics,
+            )?)
+        } else if lookahead.peek(Brace) {
+            let then_span = self.cursor().token_stream().span();
+            if let Ok((brace, content)) = (|| {
+                let content;
+                Ok((braced!(content in self), content))
+            })() {
+                Ok((
+                    HtmlInAttributeValueContext::Computation((brace, content.parse().unwrap())),
+                    diagnostics,
+                ))
+            } else {
+                diagnostics.push(then_span.error("expected { }"));
+                return Err(diagnostics);
+            }
+        } else if lookahead.peek(Paren) {
+            let then_span = self.cursor().token_stream().span();
+            if let Ok((paren, content)) = (|| {
+                let content;
+                Ok((parenthesized!(content in self), content))
+            })() {
+                Ok((
+                    HtmlInAttributeValueContext::ComputedValue((paren, content.parse().unwrap())),
+                    diagnostics,
+                ))
+            } else {
+                diagnostics.push(then_span.error("expected { }"));
+                return Err(diagnostics);
+            }
+        } else {
+            self.step(|cursor| {
+                if let Some((_, next)) = cursor.token_tree() {
+                    Ok(((), next))
+                } else {
+                    Ok(((), *cursor))
+                }
+            })
+            .unwrap();
+            Err(Vec::from([Diagnostic::from(lookahead.error())]))
+        }
+    }
+}
+
 impl<Inner: Debug> MyParse<HtmlIf<Inner>> for ParseStream<'_>
 where
     for<'a> ParseStream<'a>: MyParse<Inner>,
