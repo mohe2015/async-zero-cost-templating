@@ -8,6 +8,8 @@ use pin_project::pin_project;
 // we need to be able to pass down a reference of the value to write because of nested stuff (maybe a FutureToStreamRef)
 // this doesn't need to be perfectly beautiful because we only use it in the codegen
 
+pub struct FutureToStreamCow<'a>(pub &'a FutureToStream<alloc::borrow::Cow<'a, str>>);
+
 pub struct FutureToStream<T>(pub Cell<Option<T>>);
 
 impl<T> FutureToStream<T> {
@@ -33,21 +35,19 @@ impl<T> Future for &FutureToStream<T> {
 
 #[pin_project]
 pub struct TheStream<'a, T, F: Future<Output = ()>> {
-    value: &'a FutureToStream<T>,
+    future_to_stream: &'a FutureToStream<T>,
     #[pin]
     future: F,
 }
 
 impl<'a, T, F: Future<Output = ()>> TheStream<'a, T, F> {
-    pub fn new(future_to_stream: &'a FutureToStream<T>, input: impl FnOnce(&FutureToStream<T>) -> F) -> Self {
+    pub fn new(future_to_stream: &'a FutureToStream<T>, future: F) -> Self {
         Self {
-            value: future_to_stream,
-            future: input(future_to_stream),
+            future_to_stream,
+            future,
         }
     }
 }
-
-// FutureToStream(Cell::new(None))
 
 impl<'a, T, F: Future<Output = ()>> Stream for TheStream<'a, T, F> {
     type Item = T;
@@ -61,7 +61,7 @@ impl<'a, T, F: Future<Output = ()>> Stream for TheStream<'a, T, F> {
         match result {
             Poll::Ready(_) => Poll::Ready(None),
             Poll::Pending => {
-                if let Some(value) = this.value.0.take() {
+                if let Some(value) = this.future_to_stream.0.take() {
                     Poll::Ready(Some(value))
                 } else {
                     Poll::Pending
