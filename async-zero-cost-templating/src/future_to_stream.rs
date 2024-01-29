@@ -8,8 +8,6 @@ use pin_project::pin_project;
 // we need to be able to pass down a reference of the value to write because of nested stuff (maybe a FutureToStreamRef)
 // this doesn't need to be perfectly beautiful because we only use it in the codegen
 
-pub struct FutureToStreamCow<'a>(pub &'a FutureToStream<alloc::borrow::Cow<'a, str>>);
-
 pub struct FutureToStream<T>(pub Cell<Option<T>>);
 
 impl<T> FutureToStream<T> {
