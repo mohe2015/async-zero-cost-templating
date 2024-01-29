@@ -10,8 +10,10 @@ pub fn composition<'a, 'b, 'c: 'a>(
     tx: tokio::sync::mpsc::Sender<Cow<'a, str>>,
     value: &'c str,
 ) -> impl Future<Output = ()> + 'a {
-    html! {
-        <a href=["test" (Cow::Borrowed(value))]>"Link"</a>
+    async move {
+        html! {
+            <a href=["test" (Cow::Borrowed(value))]>"Link"</a>
+        }
     }
 }
 
@@ -20,10 +22,12 @@ async fn test() {
     let value = String::from("hello world");
     let value = &value;
     let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let future = html! {
-        <h1>"Test"</h1>
-        {
-            composition(tx, value).await
+    let future = async move {
+        html! {
+            <h1>"Test"</h1>
+            {
+                composition(tx, value).await
+            }
         }
     };
     let mut stream = pin!(TemplateToStream::new(future, rx));

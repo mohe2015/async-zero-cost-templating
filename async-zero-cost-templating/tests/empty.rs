@@ -8,8 +8,11 @@ use std::borrow::Cow;
 
 #[tokio::test]
 async fn test() {
-    let (_tx, rx) = tokio::sync::mpsc::channel::<Cow<'static, str>>(1);
-    let future = html! {};
+    let (tx, rx) = tokio::sync::mpsc::channel::<Cow<'static, str>>(1);
+    let future = async move {
+        html! {}
+    };
+    drop(tx);
     let mut stream = pin!(TemplateToStream::new(future, rx));
     while let Some(value) = stream.next().await {
         print!("{}", value)

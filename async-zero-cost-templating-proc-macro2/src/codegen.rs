@@ -8,9 +8,7 @@ use syn::spanned::Spanned;
 pub fn top_level(input: Vec<Intermediate>) -> proc_macro2::TokenStream {
     let inner = codegen(input);
     quote! {
-        async move {
-            #inner
-        }
+        #inner
     }
 }
 

@@ -12,10 +12,12 @@ async fn test() {
         alloc::borrow::Cow::Borrowed("ghi"),
     ]);
     let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let future = html! {
-        for row in &mut result {
-            "true"
-            ( row )
+    let future = async move {
+        html! {
+            for row in &mut result {
+                "true"
+                ( row )
+            }
         }
     };
     let mut stream = pin!(TemplateToStream::new(future, rx));

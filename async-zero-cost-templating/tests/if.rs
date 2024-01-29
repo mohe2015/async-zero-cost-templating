@@ -10,10 +10,12 @@ async fn test() {
     let condition = true;
     let variable = alloc::borrow::Cow::Borrowed("hi");
     let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let future = html! {
-        if condition {
-            "true"
-            ( variable )
+    let future = async move {
+        html! {
+            if condition {
+                "true"
+                ( variable )
+            }
         }
     };
     let mut stream = pin!(TemplateToStream::new(future, rx));
