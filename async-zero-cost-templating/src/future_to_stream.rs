@@ -8,15 +8,16 @@ use pin_project::pin_project;
 // we need to be able to pass down a reference of the value to write because of nested stuff (maybe a FutureToStreamRef)
 // this doesn't need to be perfectly beautiful because we only use it in the codegen
 
-pub struct FutureToStream<T>(Cell<Option<T>>);
+pub struct FutureToStream<T>(pub Cell<Option<T>>);
 
 impl<T> FutureToStream<T> {
-    pub fn _yield(&self, value: T) {
-        self.0.set(Some(value)); 
+    pub fn _yield(&self, value: T) -> &Self {
+        self.0.set(Some(value));
+        self
     }
 }
 
-impl<T> Future for FutureToStream<T> {
+impl<T> Future for &FutureToStream<T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
