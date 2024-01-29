@@ -1,6 +1,7 @@
 extern crate alloc;
 
-use async_zero_cost_templating::html;
+use async_zero_cost_templating::{html, TemplateToStream};
+use futures_util::StreamExt as _;
 use core::pin::pin;
 use futures_core::Future;
 use std::borrow::Cow;
@@ -19,13 +20,16 @@ pub fn composition<'a, 'b, 'c: 'a>(
 async fn test() {
     let value = String::from("hello world");
     let value = &value;
-    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
-    let mut future = pin!(html! {
+    let (tx, rx) = tokio::sync::mpsc::channel(1);
+    let future = html! {
         <h1>"Test"</h1>
         {
             composition(tx, value).await
         }
-    });
-
+    };
+    let mut stream = pin!(TemplateToStream::new(future, rx));
+    while let Some(value) = stream.next().await {
+        print!("{}", value)
+    }
     println!();
 }
