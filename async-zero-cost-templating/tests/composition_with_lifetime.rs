@@ -1,12 +1,15 @@
 extern crate alloc;
 
 use async_zero_cost_templating::html;
-use futures_core::Future;
-use tokio::select;
 use core::pin::pin;
+use futures_core::Future;
 use std::borrow::Cow;
+use tokio::select;
 
-pub fn composition<'a, 'b, 'c: 'a>(tx: tokio::sync::mpsc::Sender<Cow<'a, str>>, value: &'c str) -> impl Future<Output = ()> + 'a {
+pub fn composition<'a, 'b, 'c: 'a>(
+    tx: tokio::sync::mpsc::Sender<Cow<'a, str>>,
+    value: &'c str,
+) -> impl Future<Output = ()> + 'a {
     html! {
         <a href=["test" (Cow::Borrowed(value))]>"Link"</a>
     }
@@ -23,20 +26,6 @@ async fn test() {
             composition(tx, value).await
         }
     });
-    loop {
-        select! {
-            _ = &mut future => {
-                // never resume a completed future
-                break;
-            },
-            Some(value) = rx.recv() => {
-                print!("{}", value);
-            }
-            else => break
-        }
-    }
-    while let Some(value) = rx.recv().await {
-        print!("{}", value);
-    }
+
     println!();
 }

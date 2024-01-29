@@ -1,6 +1,7 @@
 extern crate alloc;
 
 pub use async_zero_cost_templating_proc_macro::html;
+use pin_project::pin_project;
 use std::convert::Infallible;
 
 use bytes::Bytes;
@@ -44,6 +45,43 @@ fn ui() {
     t.pass("tests/ui/pass/*.rs");
 }
 
-pub struct TemplateToStream<F: Future<Output = ()> + Send> {
-    future: F
+#[pin_project]
+pub struct TemplateToStream<T, F: Future<Output = ()> + Send> {
+    #[pin]
+    future: Option<F>,
+    receiver: tokio::sync::mpsc::Receiver<T>,
+}
+
+impl<T, F: Future<Output = ()> + Send> Stream for TemplateToStream<T, F> {
+    type Item = T;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let mut this = self.project();
+
+        match this.future.as_mut().as_pin_mut() {
+            Some(future) => match future.poll(cx) {
+                std::task::Poll::Ready(()) => {
+                    this.future.set(None);
+                    this.receiver.poll_recv(cx)
+                }
+                std::task::Poll::Pending => this.receiver.poll_recv(cx),
+            },
+            None => std::task::Poll::Ready(None),
+        }
+
+        /*
+           match this.receiver.poll_recv(cx) {
+                value @ std::task::Poll::Ready(_) => value,
+                std::task::Poll::Pending => {
+                    match this.future.poll(cx) {
+                        std::task::Poll::Ready(()) => this.receiver.poll_recv(cx),
+                        std::task::Poll::Pending => std::task::Poll::Pending,
+                    }
+                },
+            }
+        */
+    }
 }
