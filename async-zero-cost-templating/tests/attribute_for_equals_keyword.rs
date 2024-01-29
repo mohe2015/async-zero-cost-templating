@@ -8,7 +8,7 @@ use futures_util::stream::StreamExt;
 async fn test() {
     let (tx, rx) = tokio::sync::mpsc::channel(1);
     let future = async move {
-            html! {
+        html! {
             <label for="test"></label>
         }
     };
