@@ -4,32 +4,25 @@ use std::{pin::Pin, task::Poll};
 use futures_core::{Future, Stream};
 use pin_project::pin_project;
 
-// would probably be nice to be able to use 'a as lifetime here
-// Cell is invariant so this is not easily possible
-pub type T = ::alloc::borrow::Cow<'static, str>;
+// we need to store the future in the stream thingy because we need to poll it
+// we need to be able to pass down a reference of the value to write because of nested stuff (maybe a FutureToStreamRef)
+// this doesn't need to be perfectly beautiful because we only use it in the codegen
 
-thread_local! {
-    static VALUE: Cell<Option<T>> = const { Cell::new(None) };
-}
+pub struct FutureToStream<T>(Cell<Option<T>>);
 
-// Should not be publicly constructable
-#[derive(Copy, Clone)]
-pub struct FutureToStream(());
-
-impl FutureToStream {
-    pub fn _yield(self, value: T) -> FutureToStream {
-        VALUE.set(Some(value));
-        self
+impl<T> FutureToStream<T> {
+    pub fn _yield(&self, value: T) {
+        self.0.set(Some(value)); 
     }
 }
 
-impl Future for FutureToStream {
+impl<T> Future for FutureToStream<T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        match VALUE.take() {
+        match self.0.take() {
             Some(value) => {
-                VALUE.set(Some(value));
+                self.0.set(Some(value));
                 Poll::Pending
             }
             None => Poll::Ready(()),
@@ -38,20 +31,24 @@ impl Future for FutureToStream {
 }
 
 #[pin_project]
-pub struct TheStream<F: Future<Output = ()> + Send> {
+pub struct TheStream<'a, T, F: Future<Output = ()>> {
+    value: &'a FutureToStream<T>,
     #[pin]
     future: F,
 }
 
-impl<F: Future<Output = ()> + Send> TheStream<F> {
-    pub fn new(input: impl FnOnce(FutureToStream) -> F) -> Self {
+impl<'a, T, F: Future<Output = ()>> TheStream<'a, T, F> {
+    pub fn new(future_to_stream: &'a FutureToStream<T>, input: impl FnOnce(&FutureToStream<T>) -> F) -> Self {
         Self {
-            future: input(FutureToStream(())),
+            value: future_to_stream,
+            future: input(future_to_stream),
         }
     }
 }
 
-impl<F: Future<Output = ()> + Send> Stream for TheStream<F> {
+// FutureToStream(Cell::new(None))
+
+impl<'a, T, F: Future<Output = ()>> Stream for TheStream<'a, T, F> {
     type Item = T;
 
     fn poll_next(
@@ -63,7 +60,7 @@ impl<F: Future<Output = ()> + Send> Stream for TheStream<F> {
         match result {
             Poll::Ready(_) => Poll::Ready(None),
             Poll::Pending => {
-                if let Some(value) = VALUE.take() {
+                if let Some(value) = this.value.0.take() {
                     Poll::Ready(Some(value))
                 } else {
                     Poll::Pending
