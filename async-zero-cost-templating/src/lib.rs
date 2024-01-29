@@ -9,6 +9,7 @@ use futures_core::{Future, Stream};
 use http_body::{Body, Frame};
 
 // The reason we use a channel for now it that we want to be able to template values that don't have a lifetime of 'static and it seems like our Cell hack doesn't allow this because of invariance?
+// Because we also want to be able to send values with a lifetime of static depening on the use case (all returned values live forever).
 
 // we don't want to use an unstable edition so we can't use `async gen`
 // we don't want to use unsafe so we can't use an async coroutine lowering
