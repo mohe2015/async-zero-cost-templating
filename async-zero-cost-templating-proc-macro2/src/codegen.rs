@@ -31,10 +31,10 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
                 tx.send(#computed_value).await.unwrap();
             }
         }
-        Intermediate::Computation((_brace, computed)) => {
-            let span = computed.span();
+        Intermediate::Computation((_brace, computation)) => {
+            let span = computation.span();
             quote_spanned! {span=>
-                let () = { #computed };
+                #computation
             }
         }
         Intermediate::If(HtmlIf {
