@@ -4,9 +4,11 @@ pub use async_zero_cost_templating_proc_macro::html;
 use std::convert::Infallible;
 
 use bytes::Bytes;
-use futures_core::Stream;
+use futures_core::{Future, Stream};
 
 use http_body::{Body, Frame};
+
+// The reason we use a channel for now it that we want to be able to template values that don't have a lifetime of 'static and it seems like our Cell hack doesn't allow this because of invariance?
 
 // we don't want to use an unstable edition so we can't use `async gen`
 // we don't want to use unsafe so we can't use an async coroutine lowering
@@ -39,4 +41,8 @@ fn ui() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/ui/compile_fail/*.rs");
     t.pass("tests/ui/pass/*.rs");
+}
+
+pub struct TemplateToStream<F: Future<Output = ()> + Send> {
+    future: F
 }
