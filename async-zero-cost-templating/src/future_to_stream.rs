@@ -11,7 +11,7 @@ use pin_project::pin_project;
 pub struct FutureToStream<T>(pub Cell<Option<T>>);
 
 impl<T> FutureToStream<T> {
-    pub fn _yield(&self, value: T) -> &Self {
+    pub fn _yield(&'_ self, value: T) -> &'_ Self {
         self.0.set(Some(value));
         self
     }
