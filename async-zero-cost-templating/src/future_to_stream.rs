@@ -1,10 +1,10 @@
 use core::cell::Cell;
-use std::{borrow::Cow, pin::Pin, task::Poll};
+use std::{pin::Pin, task::Poll};
 
-use bytes::Bytes;
 use futures_core::{Future, Stream};
 use pin_project::pin_project;
 
+// would probably be nice to be able to use 'a as lifetime here
 pub type T = ::alloc::borrow::Cow<'static, str>;
 
 thread_local! {
