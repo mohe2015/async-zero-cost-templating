@@ -17,13 +17,17 @@ pub fn composition<'b: 'a, 'a>(future_to_stream: &'b FutureToStream<Cow<'a, str>
 
 #[tokio::test]
 async fn test() {
-    let value = alloc::borrow::Cow::Borrowed("hi");
+    let value = String::from("hello world");
+    inner(&value).await;
+}
+
+async fn inner<'a>(value: &'a str) {
     let future_to_stream = FutureToStream(Cell::new(None));
     let future_to_stream = &future_to_stream;
     let future = html! {
-        <a href=["test" (value)]>"Link"</a>
+        <h1>"Test"</h1>
         {
-            composition(future_to_stream, "hi").await
+            composition(future_to_stream, value).await
         }
     };
     let mut stream = pin!(TheStream::new(future_to_stream, future));
