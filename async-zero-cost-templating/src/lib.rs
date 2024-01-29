@@ -52,6 +52,15 @@ pub struct TemplateToStream<T, F: Future<Output = ()> + Send> {
     receiver: tokio::sync::mpsc::Receiver<T>,
 }
 
+impl<T, F: Future<Output = ()> + Send> TemplateToStream<T, F> {
+    pub fn new(future: F, receiver: tokio::sync::mpsc::Receiver<T>) -> Self {
+        Self {
+            future: Some(future),
+            receiver,
+        }
+    }
+}
+
 impl<T, F: Future<Output = ()> + Send> Stream for TemplateToStream<T, F> {
     type Item = T;
 
