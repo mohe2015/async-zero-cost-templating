@@ -9,7 +9,9 @@ use std::borrow::Cow;
 use std::cell::Cell;
 use futures_util::stream::StreamExt;
 
-pub fn composition<'b: 'a, 'a>(future_to_stream: &'b FutureToStream<Cow<'a, str>>, value: &'a str) -> impl Future<Output = ()> + 'a {
+// c must live longer than a
+// b must live longer than a?
+pub fn composition<'a, 'b, 'c: 'a>(future_to_stream: &'b FutureToStream<Cow<'a, str>>, value: &'c str) -> impl Future<Output = ()> + 'a {
     html! {
         <a href=["test" (Cow::Borrowed(value))]>"Link"</a>
     }
@@ -18,11 +20,9 @@ pub fn composition<'b: 'a, 'a>(future_to_stream: &'b FutureToStream<Cow<'a, str>
 #[tokio::test]
 async fn test() {
     let value = String::from("hello world");
-    inner(&value).await;
-}
-
-async fn inner<'a>(value: &'a str) {
-    let future_to_stream = FutureToStream(Cell::new(None));
+    let value = &value;
+    let value = "static";
+    let future_to_stream: FutureToStream<Cow<'static, str>> = FutureToStream(Cell::new(None));
     let future_to_stream = &future_to_stream;
     let future = html! {
         <h1>"Test"</h1>
