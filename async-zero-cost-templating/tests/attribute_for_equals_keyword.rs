@@ -7,8 +7,10 @@ use futures_util::stream::StreamExt;
 #[tokio::test]
 async fn test() {
     let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let future = html! {
-        <label for="test"></label>
+    let future = async move {
+            html! {
+            <label for="test"></label>
+        }
     };
     let mut stream = pin!(TemplateToStream::new(future, rx));
     while let Some(value) = stream.next().await {

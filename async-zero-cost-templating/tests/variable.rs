@@ -9,8 +9,10 @@ use futures_util::stream::StreamExt;
 async fn test() {
     let variable = alloc::borrow::Cow::Borrowed("hi");
     let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let future = html! {
-        ( variable )
+    let future = async move {
+        html! {
+            ( variable )
+        }
     };
     let mut stream = pin!(TemplateToStream::new(future, rx));
     while let Some(value) = stream.next().await {
