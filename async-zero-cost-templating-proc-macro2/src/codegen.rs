@@ -2,7 +2,6 @@ use crate::{
     intermediate::Intermediate,
     parse::{HtmlForLoop, HtmlIf},
 };
-use proc_macro2::Literal;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 
@@ -24,9 +23,8 @@ pub fn codegen(input: Vec<Intermediate>) -> proc_macro2::TokenStream {
 pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
     match input {
         Intermediate::Literal(lit, span) => {
-            let byte_string = Literal::byte_string(lit.as_bytes());
             quote_spanned! {span=>
-                stream._yield(::bytes::Bytes::from_static(#byte_string)).await;
+                stream._yield(::alloc::borrow::Cow::Borrowed(#lit)).await;
             }
         }
         Intermediate::ComputedValue((_brace, computed_value)) => {

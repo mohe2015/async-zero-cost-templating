@@ -1,18 +1,17 @@
+extern crate alloc;
+
 use async_zero_cost_templating::html;
 use async_zero_cost_templating::TheStream;
-use bytes::Bytes;
 use core::pin::pin;
 use futures_util::stream::StreamExt;
-use std::fs::File;
-use std::io::Write;
 
 #[tokio::test]
 async fn test() {
-    let title = async { Bytes::from_static(b"Bootstrap demo") };
+    let title = async { alloc::borrow::Cow::Borrowed("Bootstrap demo") };
     let mut result = futures_util::stream::iter([
-        Bytes::from_static(b"abc"),
-        Bytes::from_static(b"def"),
-        Bytes::from_static(b"ghi"),
+        alloc::borrow::Cow::Borrowed("abc"),
+        alloc::borrow::Cow::Borrowed("def"),
+        alloc::borrow::Cow::Borrowed("ghi"),
     ]);
     let morning = false;
     let stream = html! {
@@ -36,7 +35,7 @@ async fn test() {
             <ul>
             for row in &mut result {
                 <li>
-                    ( row.slice(0..2) )
+                    ( row )
                 </li>
             }
             </ul>
@@ -44,10 +43,8 @@ async fn test() {
         </html>
     };
     let mut stream = pin!(TheStream::new(stream));
-    let mut file = File::create("test.html").unwrap();
     while let Some(element) = stream.next().await {
-        file.write_all(&element).unwrap();
+        print!("{}", element);
     }
-    file.write_all(b"\n").unwrap();
-    file.flush().unwrap();
+    println!();
 }
