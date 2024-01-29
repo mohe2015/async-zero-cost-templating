@@ -5,7 +5,6 @@ use futures_util::StreamExt as _;
 use core::pin::pin;
 use futures_core::Future;
 use std::borrow::Cow;
-use tokio::select;
 
 pub fn composition<'a, 'b, 'c: 'a>(
     tx: tokio::sync::mpsc::Sender<Cow<'a, str>>,

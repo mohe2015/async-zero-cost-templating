@@ -49,6 +49,8 @@ fn ui() {
 pub struct TemplateToStream<T, F: Future<Output = ()> + Send> {
     #[pin]
     future: Option<F>,
+    // our Cell hack didn't work because of invariance? We want to be able to have a channel that sends non-'static values but also accepts static values.
+    // we could try Rc<T> or Rc<Cell<T>> because I think the problem was that we needed to pass around a &Cell<T<'lifetime>>
     receiver: tokio::sync::mpsc::Receiver<T>,
 }
 
