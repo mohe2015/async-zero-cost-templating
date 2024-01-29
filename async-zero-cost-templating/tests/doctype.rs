@@ -11,11 +11,11 @@ use futures_util::stream::StreamExt;
 #[tokio::test]
 async fn test() {
     let future_to_stream = FutureToStream(Cell::new(None));
-    let stream = html! {
+    let future_to_stream = &future_to_stream;
+    let future = html! {
         <!doctype html>
     };
-    let future = stream(&future_to_stream);
-    let mut stream = pin!(TheStream::new(&future_to_stream, future));
+    let mut stream = pin!(TheStream::new(future_to_stream, future));
     while let Some(element) = stream.next().await {
         print!("{}", element);
     }

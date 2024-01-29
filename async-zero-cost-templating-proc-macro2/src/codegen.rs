@@ -8,7 +8,7 @@ use syn::spanned::Spanned;
 pub fn top_level(input: Vec<Intermediate>) -> proc_macro2::TokenStream {
     let inner = codegen(input);
     quote! {
-        |stream: &::async_zero_cost_templating::FutureToStream<::alloc::borrow::Cow<'static, str>>| async move {
+        async move {
             #inner
         }
     }
@@ -24,13 +24,13 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
     match input {
         Intermediate::Literal(lit, span) => {
             quote_spanned! {span=>
-                stream._yield(::alloc::borrow::Cow::Borrowed(#lit)).await;
+                future_to_stream._yield(::alloc::borrow::Cow::Borrowed(#lit)).await;
             }
         }
         Intermediate::ComputedValue((_brace, computed_value)) => {
             let span = computed_value.span();
             quote_spanned! {span=>
-                stream._yield(#computed_value).await;
+                future_to_stream._yield(#computed_value).await;
             }
         }
         Intermediate::Computation((_brace, computed)) => {
