@@ -5,7 +5,8 @@ use syn::{
 };
 
 use crate::parse::{
-    HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeContext, HtmlInAttributeValueContext, HtmlInElementContext
+    HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeContext, HtmlInAttributeValueContext,
+    HtmlInElementContext,
 };
 
 pub enum Intermediate {
@@ -26,7 +27,7 @@ impl From<HtmlInAttributeContext> for Vec<Intermediate> {
                 )]
                 .into_iter()
                 .chain(
-                   value
+                    value
                         .map(|value| {
                             [Intermediate::Literal(r#"=""#.to_owned(), value.0.span())]
                                 .into_iter()

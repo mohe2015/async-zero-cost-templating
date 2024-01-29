@@ -1,6 +1,5 @@
 use async_zero_cost_templating::html;
 use async_zero_cost_templating::TheStream;
-use bytes::Bytes;
 use core::pin::pin;
 use futures_util::stream::StreamExt;
 use std::io::Write;

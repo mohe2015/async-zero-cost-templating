@@ -240,7 +240,6 @@ pub struct HtmlElement {
     )>,
 }
 
-
 impl MyParse<HtmlInElementContext> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "Html<Inner>")]
     fn inner_my_parse(self) -> Result<(HtmlInElementContext, Vec<Diagnostic>), Vec<Diagnostic>> {
@@ -402,17 +401,14 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
         let mut diagnostics = Vec::new();
         let lookahead = self.lookahead1();
         let span = self.cursor().token_stream().span();
-        if lookahead.peek(Token![if]) {
-            Ok(
-                MyParse::<HtmlIf<Vec<HtmlInAttributeContext>>>::my_parse(
-                    self,
-                    HtmlInAttributeContext::If,
-                    |diagnostic| diagnostic.span_note(span, "while parsing if"),
-                    diagnostics,
-                )?,
-            )
-        // TODO FIXME dammit this is our keyword and its a used html attribute key
-        } else if lookahead.peek(Token![for]) {
+        if lookahead.peek(Token![if]) && !self.peek2(Token![=]) {
+            Ok(MyParse::<HtmlIf<Vec<HtmlInAttributeContext>>>::my_parse(
+                self,
+                HtmlInAttributeContext::If,
+                |diagnostic| diagnostic.span_note(span, "while parsing if"),
+                diagnostics,
+            )?)
+        } else if lookahead.peek(Token![for]) && !self.peek2(Token![=]) {
             Ok(
                 MyParse::<HtmlForLoop<Vec<HtmlInAttributeContext>>>::my_parse(
                     self,
@@ -422,56 +418,62 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
                 )?,
             )
         } else if lookahead.peek(Ident::peek_any) {
-            Ok((HtmlInAttributeContext::Literal(
-                {
-                    let value;
-                    (value, diagnostics) =
-                        MyParse::my_parse(self, identity, identity, diagnostics)?;
-                    value
-                },
-                {
-                    if self.peek(Token![=]) {
-                        // TODO FIXME check for string or []
-                        let eq: Token![=];
-                        (eq, diagnostics) =
-                            MyParse::my_parse(self, identity, identity, diagnostics)?;
-                        let lookahead1 = self.lookahead1();
-
+            Ok((
+                HtmlInAttributeContext::Literal(
+                    {
                         let value;
-                        (value, diagnostics) = if lookahead1.peek(LitStr) {
-                            MyParse::<LitStr>::my_parse(
-                                self,
-                                |value| Vec::from([HtmlInAttributeValueContext::Literal(value)]),
-                                identity,
-                                diagnostics,
-                            )?
-                        } else if lookahead1.peek(Bracket) {
-                            let then_span = self.cursor().token_stream().span();
-                            if let Ok((_bracket, content)) = (|| {
-                                let content;
-                                Ok((bracketed!(content in self), content))
-                            })() {
-                                MyParse::<Vec<HtmlInAttributeValueContext>>::my_parse(
-                                    &content,
-                                    identity,
+                        (value, diagnostics) =
+                            MyParse::my_parse(self, identity, identity, diagnostics)?;
+                        value
+                    },
+                    {
+                        if self.peek(Token![=]) {
+                            // TODO FIXME check for string or []
+                            let eq: Token![=];
+                            (eq, diagnostics) =
+                                MyParse::my_parse(self, identity, identity, diagnostics)?;
+                            let lookahead1 = self.lookahead1();
+
+                            let value;
+                            (value, diagnostics) = if lookahead1.peek(LitStr) {
+                                MyParse::<LitStr>::my_parse(
+                                    self,
+                                    |value| {
+                                        Vec::from([HtmlInAttributeValueContext::Literal(value)])
+                                    },
                                     identity,
                                     diagnostics,
                                 )?
+                            } else if lookahead1.peek(Bracket) {
+                                let then_span = self.cursor().token_stream().span();
+                                if let Ok((_bracket, content)) = (|| {
+                                    let content;
+                                    Ok((bracketed!(content in self), content))
+                                })(
+                                ) {
+                                    MyParse::<Vec<HtmlInAttributeValueContext>>::my_parse(
+                                        &content,
+                                        identity,
+                                        identity,
+                                        diagnostics,
+                                    )?
+                                } else {
+                                    diagnostics.push(then_span.error("expected { }"));
+                                    return Err(diagnostics);
+                                }
                             } else {
-                                diagnostics.push(then_span.error("expected { }"));
+                                diagnostics.push(Diagnostic::from(lookahead1.error()));
                                 return Err(diagnostics);
-                            }
+                            };
+                            Some((eq, value))
                         } else {
-                            diagnostics.push(Diagnostic::from(lookahead1.error()));
-                            return Err(diagnostics);
-                        };
-                        Some((eq, value))
-                    } else {
-                        None
-                    }
-                },
-            ), diagnostics))
-        }  else if lookahead.peek(Brace) {
+                            None
+                        }
+                    },
+                ),
+                diagnostics,
+            ))
+        } else if lookahead.peek(Brace) {
             let then_span = self.cursor().token_stream().span();
             if let Ok((brace, content)) = (|| {
                 let content;
