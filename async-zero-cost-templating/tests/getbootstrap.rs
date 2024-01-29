@@ -1,17 +1,13 @@
 extern crate alloc;
 
-use async_zero_cost_templating::html;
-use async_zero_cost_templating::FutureToStream;
-use async_zero_cost_templating::TheStream;
+use async_zero_cost_templating::{html, TemplateToStream};
 use core::pin::pin;
 use futures_util::stream::StreamExt;
-use std::cell::Cell;
 
 #[tokio::test]
 async fn test() {
     let title = async { alloc::borrow::Cow::Borrowed("Bootstrap demo") };
-    let future_to_stream = FutureToStream(Cell::new(None));
-    let future_to_stream = &future_to_stream;
+    let (tx, rx) = tokio::sync::mpsc::channel(1);
     let mut result = futures_util::stream::iter([
         alloc::borrow::Cow::Borrowed("abc"),
         alloc::borrow::Cow::Borrowed("def"),
@@ -46,9 +42,9 @@ async fn test() {
         </body>
         </html>
     };
-    let mut stream = pin!(TheStream::new(future_to_stream, future));
-    while let Some(element) = stream.next().await {
-        print!("{}", element);
+    let mut stream = pin!(TemplateToStream::new(future, rx));
+    while let Some(value) = stream.next().await {
+        print!("{}", value)
     }
     println!();
 }

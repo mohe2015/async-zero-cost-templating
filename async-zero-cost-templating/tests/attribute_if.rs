@@ -1,17 +1,13 @@
 extern crate alloc;
 
-use async_zero_cost_templating::html;
-use async_zero_cost_templating::FutureToStream;
-use async_zero_cost_templating::TheStream;
+use async_zero_cost_templating::{html, TemplateToStream};
 use core::pin::pin;
 use futures_util::stream::StreamExt;
-use std::cell::Cell;
 
 #[tokio::test]
 async fn test() {
     let condition = false;
-    let future_to_stream = FutureToStream(Cell::new(None));
-    let future_to_stream = &future_to_stream;
+    let (tx, rx) = tokio::sync::mpsc::channel(1);
     let future = html! {
         <input if condition {
             value="/test"
@@ -19,9 +15,9 @@ async fn test() {
             class="error"
         }>
     };
-    let mut stream = pin!(TheStream::new(future_to_stream, future));
-    while let Some(element) = stream.next().await {
-        print!("{}", element);
+    let mut stream = pin!(TemplateToStream::new(future, rx));
+    while let Some(value) = stream.next().await {
+        print!("{}", value)
     }
     println!();
 }
