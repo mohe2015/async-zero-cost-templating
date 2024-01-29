@@ -5,6 +5,7 @@ use futures_core::{Future, Stream};
 use pin_project::pin_project;
 
 // would probably be nice to be able to use 'a as lifetime here
+// Cell is invariant so this is not easily possible
 pub type T = ::alloc::borrow::Cow<'static, str>;
 
 thread_local! {
@@ -37,12 +38,12 @@ impl Future for FutureToStream {
 }
 
 #[pin_project]
-pub struct TheStream<F: Future<Output = ()>> {
+pub struct TheStream<F: Future<Output = ()> + Send> {
     #[pin]
     future: F,
 }
 
-impl<F: Future<Output = ()>> TheStream<F> {
+impl<F: Future<Output = ()> + Send> TheStream<F> {
     pub fn new(input: impl FnOnce(FutureToStream) -> F) -> Self {
         Self {
             future: input(FutureToStream(())),
@@ -50,7 +51,7 @@ impl<F: Future<Output = ()>> TheStream<F> {
     }
 }
 
-impl<F: Future<Output = ()>> Stream for TheStream<F> {
+impl<F: Future<Output = ()> + Send> Stream for TheStream<F> {
     type Item = T;
 
     fn poll_next(
