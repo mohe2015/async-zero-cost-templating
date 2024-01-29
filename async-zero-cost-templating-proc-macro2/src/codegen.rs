@@ -24,13 +24,13 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
     match input {
         Intermediate::Literal(lit, span) => {
             quote_spanned! {span=>
-                future_to_stream._yield(::alloc::borrow::Cow::Borrowed(#lit)).await;
+                tx.send(::alloc::borrow::Cow::Borrowed(#lit)).await;
             }
         }
         Intermediate::ComputedValue((_brace, computed_value)) => {
             let span = computed_value.span();
             quote_spanned! {span=>
-                future_to_stream._yield(#computed_value).await;
+                tx.send(#computed_value).await;
             }
         }
         Intermediate::Computation((_brace, computed)) => {
