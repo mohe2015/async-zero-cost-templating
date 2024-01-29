@@ -4,8 +4,8 @@ use async_zero_cost_templating::html;
 use async_zero_cost_templating::FutureToStream;
 use async_zero_cost_templating::TheStream;
 use core::pin::pin;
-use std::cell::Cell;
 use futures_util::stream::StreamExt;
+use std::cell::Cell;
 
 // should the future be sync and send?
 #[tokio::test]
