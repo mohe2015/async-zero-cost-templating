@@ -14,7 +14,7 @@ async fn test() {
     let (tx, rx) = tokio::sync::mpsc::channel(1);
     let future = async move {
         html! {
-            for row in &mut result {
+            while let Some(row) = result.next().await {
                 "true"
                 ( row )
             }

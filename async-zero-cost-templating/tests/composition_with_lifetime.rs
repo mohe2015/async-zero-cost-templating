@@ -1,9 +1,9 @@
 extern crate alloc;
 
 use async_zero_cost_templating::{html, TemplateToStream};
-use futures_util::StreamExt as _;
 use core::pin::pin;
 use futures_core::Future;
+use futures_util::StreamExt as _;
 use std::borrow::Cow;
 
 pub fn composition<'a, 'b, 'c: 'a>(

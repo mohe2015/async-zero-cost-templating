@@ -1,4 +1,4 @@
-error: unexpected end of input, expected one of: `if`, `for`, identifier, curly braces
+error: unexpected end of input, expected one of: `if`, `for`, `while`, identifier, curly braces
   --> tests/ui/compile_fail/doctype.rs:8:9
    |
 8  | /         html! {
