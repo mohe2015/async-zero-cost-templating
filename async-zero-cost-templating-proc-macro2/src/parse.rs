@@ -278,6 +278,7 @@ impl MyParse<HtmlInElementContext> for ParseStream<'_> {
                     HtmlInElementContext::Computation((brace, content.parse().unwrap())),
                     diagnostics,
                 ))
+                // TODO FIXME check fully parsed
             } else {
                 diagnostics.push(then_span.error("expected { }"));
                 return Err(diagnostics);
@@ -288,6 +289,7 @@ impl MyParse<HtmlInElementContext> for ParseStream<'_> {
                 let content;
                 Ok((parenthesized!(content in self), content))
             })() {
+                // TODO FIXME check fully parsed
                 Ok((
                     HtmlInElementContext::ComputedValue((paren, content.parse().unwrap())),
                     diagnostics,
@@ -356,6 +358,7 @@ impl MyParse<HtmlInAttributeValueContext> for ParseStream<'_> {
                 let content;
                 Ok((braced!(content in self), content))
             })() {
+                // TODO FIXME check fully parsed
                 Ok((
                     HtmlInAttributeValueContext::Computation((brace, content.parse().unwrap())),
                     diagnostics,
@@ -370,6 +373,7 @@ impl MyParse<HtmlInAttributeValueContext> for ParseStream<'_> {
                 let content;
                 Ok((parenthesized!(content in self), content))
             })() {
+                // TODO FIXME check fully parsed
                 Ok((
                     HtmlInAttributeValueContext::ComputedValue((paren, content.parse().unwrap())),
                     diagnostics,
@@ -473,6 +477,7 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
                 let content;
                 Ok((braced!(content in self), content))
             })() {
+                // TODO FIXME check fully parsed
                 Ok((
                     HtmlInAttributeContext::Computation((brace, content.parse().unwrap())),
                     diagnostics,
@@ -543,6 +548,7 @@ where
                         let content;
                         Ok((braced!(content in self), content))
                     })() {
+                        // TODO FIXME check fully parsed
                         let result;
                         (result, diagnostics) = MyParse::<Inner>::my_parse(
                             &content,
@@ -573,6 +579,7 @@ where
                             let content;
                             Ok((braced!(content in self), content))
                         })() {
+                            // TODO FIXME check fully parsed
                             let result;
                             (result, diagnostics) = MyParse::<Inner>::my_parse(
                                 &content,
@@ -665,6 +672,7 @@ where
             let content;
             Ok((braced!(content in self), content))
         })() {
+            // TODO FIXME check fully parsed
             let result;
             (result, diagnostics) = MyParse::<Inner>::my_parse(
                 &content,
