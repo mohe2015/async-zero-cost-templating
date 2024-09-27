@@ -7,13 +7,9 @@ use futures_util::stream::StreamExt;
 // should the future be sync and send?
 #[tokio::test]
 async fn test() {
-    let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let future = async move {
-        html! {
-            <!doctype html>
-        }
+    let stream = html! {
+        <!doctype html>
     };
-    let stream = pin!(TemplateToStream::new(future, rx));
     let result: String = stream.collect().await;
     assert_eq!(result, r#"<!doctype html>"#)
 }

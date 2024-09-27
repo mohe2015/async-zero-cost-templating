@@ -11,16 +11,12 @@ async fn test() {
         alloc::borrow::Cow::Borrowed("def"),
         alloc::borrow::Cow::Borrowed("ghi"),
     ]);
-    let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let future = async move {
-        html! {
-            while let Some(row) = result.next().await {
-                "true"
-                ( row )
-            }
+    let stream = html! {
+        while let Some(row) = result.next().await {
+            "true"
+            ( row )
         }
     };
-    let stream = pin!(TemplateToStream::new(future, rx));
     let result: String = stream.collect().await;
     assert_eq!(result, r#"trueabctruedeftrueghi"#)
 }
