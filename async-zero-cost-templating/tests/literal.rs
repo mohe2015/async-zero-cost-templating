@@ -1,18 +1,18 @@
 extern crate alloc;
 
-use async_zero_cost_templating::html;
-use async_zero_cost_templating::TheStream;
+use async_zero_cost_templating::{html, TemplateToStream};
 use core::pin::pin;
 use futures_util::stream::StreamExt;
 
 #[tokio::test]
 async fn test() {
-    let stream = html! {
-        "hello world"
+    let (tx, rx) = tokio::sync::mpsc::channel(1);
+    let future = async move {
+        html! {
+            "hello world"
+        }
     };
-    let mut stream = pin!(TheStream::new(stream));
-    while let Some(element) = stream.next().await {
-        print!("{}", element);
-    }
-    println!();
+    let stream = pin!(TemplateToStream::new(future, rx));
+    let result: String = stream.collect().await;
+    assert_eq!(result, r#"hello world"#)
 }

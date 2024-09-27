@@ -6,7 +6,7 @@ use syn::{
 
 use crate::parse::{
     HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeContext, HtmlInAttributeValueContext,
-    HtmlInElementContext,
+    HtmlInElementContext, HtmlWhile,
 };
 
 pub enum Intermediate {
@@ -14,6 +14,7 @@ pub enum Intermediate {
     Computation((Brace, TokenStream)),
     ComputedValue((Paren, TokenStream)),
     If(HtmlIf<Vec<Intermediate>>),
+    While(HtmlWhile<Vec<Intermediate>>),
     For(HtmlForLoop<Vec<Intermediate>>),
 }
 
@@ -88,6 +89,21 @@ impl From<HtmlInAttributeContext> for Vec<Intermediate> {
                         .collect(),
                 ),
             })]),
+            crate::parse::HtmlInAttributeContext::While(HtmlWhile {
+                while_token,
+                cond,
+                body,
+            }) => Vec::from([Intermediate::While(HtmlWhile {
+                while_token,
+                cond,
+                body: (
+                    body.0,
+                    body.1
+                        .into_iter()
+                        .flat_map(Vec::<Intermediate>::from)
+                        .collect(),
+                ),
+            })]),
         }
     }
 }
@@ -143,6 +159,21 @@ impl From<HtmlInAttributeValueContext> for Vec<Intermediate> {
                 pat,
                 in_token,
                 expr,
+                body: (
+                    body.0,
+                    body.1
+                        .into_iter()
+                        .flat_map(Vec::<Intermediate>::from)
+                        .collect(),
+                ),
+            })]),
+            crate::parse::HtmlInAttributeValueContext::While(HtmlWhile {
+                while_token,
+                cond,
+                body,
+            }) => Vec::from([Intermediate::While(HtmlWhile {
+                while_token,
+                cond,
                 body: (
                     body.0,
                     body.1
@@ -214,6 +245,21 @@ impl From<HtmlInElementContext> for Vec<Intermediate> {
                         .collect(),
                 ),
             })]),
+            crate::parse::HtmlInElementContext::While(HtmlWhile {
+                while_token,
+                cond,
+                body,
+            }) => Vec::from([Intermediate::While(HtmlWhile {
+                while_token,
+                cond,
+                body: (
+                    body.0,
+                    body.1
+                        .into_iter()
+                        .flat_map(Vec::<Intermediate>::from)
+                        .collect(),
+                ),
+            })]),
             crate::parse::HtmlInElementContext::Element(HtmlElement {
                 open_start,
                 open_tag_name,
@@ -264,11 +310,20 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
                         acc,
                         Some((lit1 + &lit2, span1.join(span2).unwrap_or(span1))),
                     ),
-                    (Some((lit, span)), Intermediate::For(mut children)) => (
+                    (Some((lit, span)), Intermediate::For(mut html_for)) => (
                         {
                             acc.push(Intermediate::Literal(lit, span));
-                            children.body.1 = simplify(children.body.1);
-                            acc.push(Intermediate::For(children));
+                            html_for.body.1 = simplify(html_for.body.1);
+                            acc.push(Intermediate::For(html_for));
+                            acc
+                        },
+                        None,
+                    ),
+                    (Some((lit, span)), Intermediate::While(mut html_while)) => (
+                        {
+                            acc.push(Intermediate::Literal(lit, span));
+                            html_while.body.1 = simplify(html_while.body.1);
+                            acc.push(Intermediate::While(html_while));
                             acc
                         },
                         None,
@@ -302,10 +357,18 @@ pub fn simplify(input: Vec<Intermediate>) -> Vec<Intermediate> {
                         },
                         None,
                     ),
-                    (None, Intermediate::For(mut children)) => (
+                    (None, Intermediate::For(mut html_for)) => (
                         {
-                            children.body.1 = simplify(children.body.1);
-                            acc.push(Intermediate::For(children));
+                            html_for.body.1 = simplify(html_for.body.1);
+                            acc.push(Intermediate::For(html_for));
+                            acc
+                        },
+                        None,
+                    ),
+                    (None, Intermediate::While(mut html_while)) => (
+                        {
+                            html_while.body.1 = simplify(html_while.body.1);
+                            acc.push(Intermediate::While(html_while));
                             acc
                         },
                         None,

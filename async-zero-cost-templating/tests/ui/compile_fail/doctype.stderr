@@ -1,36 +1,39 @@
-error: unexpected end of input, expected ident
- --> tests/ui/compile_fail/doctype.rs:4:13
+error: unexpected end of input, expected one of: `if`, `for`, `while`, identifier, curly braces
+  --> tests/ui/compile_fail/doctype.rs:8:9
+   |
+8  | /         html! {
+9  | |             <!doctype html>
+10 | |             <html
+11 | |         }
+   | |_________^
+   |
+   = note: this error originates in the macro `html` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: [note] while parsing attribute
+  --> tests/ui/compile_fail/doctype.rs:8:9
+   |
+8  | /         html! {
+9  | |             <!doctype html>
+10 | |             <html
+11 | |         }
+   | |_________^
+   |
+   = note: this error originates in the macro `html` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: [note] while parsing element
+  --> tests/ui/compile_fail/doctype.rs:10:13
+   |
+10 |             <html
+   |             ^
+
+error: [note] while parsing child
+  --> tests/ui/compile_fail/doctype.rs:10:13
+   |
+10 |             <html
+   |             ^
+
+error: [note] while parsing children
+ --> tests/ui/compile_fail/doctype.rs:9:13
   |
-4 |       let _ = html! {
-  |  _____________^
-5 | |         <!doctype html>
-6 | |         <html
-7 | |     };
-  | |_____^
-  |
-note: while parsing attribute
- --> tests/ui/compile_fail/doctype.rs:4:13
-  |
-4 |       let _ = html! {
-  |  _____________^
-5 | |         <!doctype html>
-6 | |         <html
-7 | |     };
-  | |_____^
-note: while parsing element
- --> tests/ui/compile_fail/doctype.rs:6:9
-  |
-6 |         <html
-  |         ^^^^^
-note: while parsing top level child
- --> tests/ui/compile_fail/doctype.rs:6:9
-  |
-6 |         <html
-  |         ^^^^^
-note: while parsing top level children
- --> tests/ui/compile_fail/doctype.rs:5:9
-  |
-5 | /         <!doctype html>
-6 | |         <html
-  | |_____________^
-  = note: this error originates in the macro `html` (in Nightly builds, run with -Z macro-backtrace for more info)
+9 |             <!doctype html>
+  |             ^

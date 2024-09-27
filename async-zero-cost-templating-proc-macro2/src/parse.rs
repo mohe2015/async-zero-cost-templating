@@ -12,7 +12,7 @@ use syn::{
     parenthesized,
     parse::{Parse, ParseStream},
     spanned::Spanned,
-    token::{Brace, Bracket, Else, For, If, In, Paren},
+    token::{Brace, Bracket, Else, For, If, In, Paren, While},
     Ident, LitStr, Token,
 };
 use tracing::instrument;
@@ -123,6 +123,7 @@ my_parse!(Option<Token![!]>);
 my_parse!(Token![=]);
 my_parse!(Token![in]);
 my_parse!(Token![for]);
+my_parse!(Token![while]);
 
 impl MyParse<Ident> for ParseStream<'_> {
     fn inner_my_parse(self) -> Result<(Ident, Vec<Diagnostic>), Vec<Diagnostic>>
@@ -182,6 +183,7 @@ pub enum HtmlInElementContext {
     ComputedValue((Paren, TokenStream)),
     If(HtmlIf<Vec<HtmlInElementContext>>),
     For(HtmlForLoop<Vec<HtmlInElementContext>>),
+    While(HtmlWhile<Vec<HtmlInElementContext>>),
     Element(HtmlElement),
 }
 
@@ -191,6 +193,7 @@ pub enum HtmlInAttributeValueContext {
     Computation((Brace, TokenStream)),
     ComputedValue((Paren, TokenStream)),
     If(HtmlIf<Vec<HtmlInAttributeValueContext>>),
+    While(HtmlWhile<Vec<HtmlInAttributeValueContext>>),
     For(HtmlForLoop<Vec<HtmlInAttributeValueContext>>),
 }
 
@@ -199,6 +202,7 @@ pub enum HtmlInAttributeContext {
     Literal(Ident, Option<(Token![=], Vec<HtmlInAttributeValueContext>)>),
     Computation((Brace, TokenStream)),
     If(HtmlIf<Vec<HtmlInAttributeContext>>),
+    While(HtmlWhile<Vec<HtmlInAttributeContext>>),
     For(HtmlForLoop<Vec<HtmlInAttributeContext>>),
 }
 
@@ -208,6 +212,13 @@ pub struct HtmlIf<Inner> {
     pub cond: TokenStream,
     pub then_branch: (Brace, Inner),
     pub else_branch: Option<(Else, Brace, Inner)>,
+}
+
+#[derive(Debug)]
+pub struct HtmlWhile<Inner> {
+    pub while_token: While,
+    pub cond: TokenStream,
+    pub body: (Brace, Inner),
 }
 
 #[derive(Debug)]
@@ -265,6 +276,13 @@ impl MyParse<HtmlInElementContext> for ParseStream<'_> {
                 self,
                 HtmlInElementContext::For,
                 |diagnostic| diagnostic.span_note(span, "while parsing for"),
+                diagnostics,
+            )?)
+        } else if lookahead.peek(Token![while]) {
+            Ok(MyParse::<HtmlWhile<Vec<HtmlInElementContext>>>::my_parse(
+                self,
+                HtmlInElementContext::While,
+                |diagnostic| diagnostic.span_note(span, "while parsing while"),
                 diagnostics,
             )?)
         } else if lookahead.peek(Brace) {
@@ -351,6 +369,15 @@ impl MyParse<HtmlInAttributeValueContext> for ParseStream<'_> {
                     diagnostics,
                 )?,
             )
+        } else if lookahead.peek(Token![while]) {
+            Ok(
+                MyParse::<HtmlWhile<Vec<HtmlInAttributeValueContext>>>::my_parse(
+                    self,
+                    HtmlInAttributeValueContext::While,
+                    |diagnostic| diagnostic.span_note(span, "while parsing while"),
+                    diagnostics,
+                )?,
+            )
         } else if lookahead.peek(Brace) {
             let then_span = self.cursor().token_stream().span();
             if let Ok((brace, content)) = (|| {
@@ -417,6 +444,13 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
                     diagnostics,
                 )?,
             )
+        } else if lookahead.peek(Token![while]) && !self.peek2(Token![=]) {
+            Ok(MyParse::<HtmlWhile<Vec<HtmlInAttributeContext>>>::my_parse(
+                self,
+                HtmlInAttributeContext::While,
+                |diagnostic| diagnostic.span_note(span, "while parsing while"),
+                diagnostics,
+            )?)
         } else if lookahead.peek(Ident::peek_any) {
             Ok((
                 HtmlInAttributeContext::Literal(
@@ -688,6 +722,69 @@ where
                     pat,
                     in_token,
                     expr,
+                    body: (brace_token, result),
+                },
+                diagnostics,
+            ))
+        } else {
+            diagnostics.push(loop_span.error("expected { }"));
+            return Err(diagnostics);
+        }
+    }
+}
+
+impl<Inner: Debug> MyParse<HtmlWhile<Inner>> for ParseStream<'_>
+where
+    for<'a> ParseStream<'a>: MyParse<Inner>,
+{
+    #[instrument(err(Debug), ret, name = "HtmlWhile<Inner>")]
+    fn inner_my_parse(self) -> Result<(HtmlWhile<Inner>, Vec<Diagnostic>), Vec<Diagnostic>> {
+        let mut diagnostics = Vec::new();
+        let while_token: Token![while];
+        (while_token, diagnostics) =
+            MyParse::<Token![while]>::my_parse(self, identity, identity, diagnostics)?;
+
+        let result = self.step(|cursor| {
+            let mut rest = *cursor;
+            let mut tokens = TokenStream::new();
+            while let Some((tt, next)) = rest.token_tree() {
+                match &tt {
+                    TokenTree::Group(group) if group.delimiter() == Delimiter::Brace => {
+                        return Ok((tokens, rest));
+                    }
+                    _ => {
+                        tokens.extend(std::iter::once(rest.token_tree().unwrap().0));
+                        rest = next;
+                    }
+                }
+            }
+            Err(cursor.error("no { was found after this point"))
+        });
+        let expr = match result {
+            Ok(value) => value,
+            Err(error) => {
+                diagnostics.push(error.into());
+                return Err(diagnostics);
+            }
+        };
+
+        let loop_span = self.cursor().token_stream().span();
+        if let Ok((brace_token, content)) = (|| {
+            let content;
+            Ok((braced!(content in self), content))
+        })() {
+            // TODO FIXME check fully parsed
+            let result;
+            (result, diagnostics) = MyParse::<Inner>::my_parse(
+                &content,
+                identity,
+                |diagnostic| diagnostic.span_note(loop_span, "while parsing while loop body"),
+                diagnostics,
+            )?;
+            Ok((
+                HtmlWhile {
+                    while_token,
+                    cond: expr,
                     body: (brace_token, result),
                 },
                 diagnostics,

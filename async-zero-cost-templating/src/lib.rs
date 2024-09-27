@@ -1,17 +1,16 @@
 extern crate alloc;
 
-mod future_to_stream;
-
 pub use async_zero_cost_templating_proc_macro::html;
-pub use future_to_stream::FutureToStream;
-pub use future_to_stream::TheStream;
-
+use pin_project::pin_project;
 use std::convert::Infallible;
 
 use bytes::Bytes;
-use futures_core::Stream;
+use futures_core::{Future, Stream};
 
 use http_body::{Body, Frame};
+
+// The reason we use a channel for now it that we want to be able to template values that don't have a lifetime of 'static and it seems like our Cell hack doesn't allow this because of invariance?
+// Because we also want to be able to send values with a lifetime of static depening on the use case (all returned values live forever).
 
 // we don't want to use an unstable edition so we can't use `async gen`
 // we don't want to use unsafe so we can't use an async coroutine lowering
@@ -44,4 +43,44 @@ fn ui() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/ui/compile_fail/*.rs");
     t.pass("tests/ui/pass/*.rs");
+}
+
+#[pin_project]
+pub struct TemplateToStream<T, F: Future<Output = ()> + Send> {
+    #[pin]
+    future: Option<F>,
+    // our Cell hack didn't work because of invariance? We want to be able to have a channel that sends non-'static values but also accepts static values.
+    // we could try Rc<T> or Rc<Cell<T>> because I think the problem was that we needed to pass around a &Cell<T<'lifetime>>
+    receiver: tokio::sync::mpsc::Receiver<T>,
+}
+
+impl<T, F: Future<Output = ()> + Send> TemplateToStream<T, F> {
+    pub fn new(future: F, receiver: tokio::sync::mpsc::Receiver<T>) -> Self {
+        Self {
+            future: Some(future),
+            receiver,
+        }
+    }
+}
+
+impl<T, F: Future<Output = ()> + Send> Stream for TemplateToStream<T, F> {
+    type Item = T;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let mut this = self.project();
+
+        match this.future.as_mut().as_pin_mut() {
+            Some(future) => match future.poll(cx) {
+                std::task::Poll::Ready(()) => {
+                    this.future.set(None);
+                    this.receiver.poll_recv(cx)
+                }
+                std::task::Poll::Pending => this.receiver.poll_recv(cx),
+            },
+            None => std::task::Poll::Ready(None),
+        }
+    }
 }
