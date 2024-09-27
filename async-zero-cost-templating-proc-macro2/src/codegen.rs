@@ -43,7 +43,7 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
             let span = computation.span();
             quote_spanned! {span=>
                 let stream: ::async_zero_cost_templating::TemplateToStream<_, _> = #computation;
-                let mut stream = pin!(stream);
+                let mut stream = ::std::pin::pin!(stream);
                 while let Some(value) = stream.next().await {
                     tx.send(value).await.unwrap();
                 }
