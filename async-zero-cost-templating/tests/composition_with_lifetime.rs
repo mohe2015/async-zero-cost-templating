@@ -2,18 +2,15 @@ extern crate alloc;
 
 use async_zero_cost_templating::{html, TemplateToStream};
 use core::pin::pin;
-use futures_core::Future;
+use futures_core::{Future, Stream};
 use futures_util::StreamExt as _;
 use std::borrow::Cow;
 
 pub fn composition<'a>(
-    tx: tokio::sync::mpsc::Sender<Cow<'a, str>>,
     value: &'a str,
-) -> impl Future<Output = ()> + 'a {
-    async move {
-        html! {
-            <a href=["test" (Cow::Borrowed(value))]>"Link"</a>
-        }
+) -> impl Stream<Item = Cow<'a, str>> + 'a {
+    html! {
+        <a href=["test" (Cow::Borrowed(value))]>"Link"</a>
     }
 }
 
