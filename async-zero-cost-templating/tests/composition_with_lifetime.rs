@@ -6,9 +6,9 @@ use futures_core::Future;
 use futures_util::StreamExt as _;
 use std::borrow::Cow;
 
-pub fn composition<'a, 'b, 'c: 'a>(
+pub fn composition<'a>(
     tx: tokio::sync::mpsc::Sender<Cow<'a, str>>,
-    value: &'c str,
+    value: &'a str,
 ) -> impl Future<Output = ()> + 'a {
     async move {
         html! {
