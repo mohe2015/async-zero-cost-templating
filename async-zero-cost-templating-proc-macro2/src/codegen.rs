@@ -13,7 +13,7 @@ pub fn top_level(input: Vec<Intermediate>) -> proc_macro2::TokenStream {
             let future = async move {
                 #inner
             };
-            TemplateToStream::new(future, rx)
+            ::async_zero_cost_templating::TemplateToStream::new(future, rx)
         }
     }
 }
@@ -39,9 +39,12 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
         }
         Intermediate::Computation((_brace, computation)) => {
             // TODO if we want to support this for attributes and elements with correct context, create two return types for html! and html_attribute! macros and then verify type here
+            // TODO FIXME this can be used to circumvent escape safety
             let span = computation.span();
             quote_spanned! {span=>
-                while let Some(value) = #computation.next().await {
+                let stream: ::async_zero_cost_templating::TemplateToStream<_, _> = #computation;
+                let mut stream = pin!(stream);
+                while let Some(value) = stream.next().await {
                     tx.send(value).await.unwrap();
                 }
             }

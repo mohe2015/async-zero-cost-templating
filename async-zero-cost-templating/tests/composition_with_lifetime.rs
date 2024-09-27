@@ -8,7 +8,7 @@ use std::borrow::Cow;
 
 pub fn composition<'a>(
     value: &'a str,
-) -> impl Stream<Item = Cow<'a, str>> + 'a {
+) -> TemplateToStream<Cow<'a, str>, impl Future<Output = ()> + 'a> {
     html! {
         <a href=["test" (Cow::Borrowed(value))]>"Link"</a>
     }
@@ -18,7 +18,7 @@ pub fn composition<'a>(
 async fn test() {
     let value = String::from("hello world");
     let value = &value;
-    let future = html! {
+    let stream = html! {
         <h1>"Test"</h1>
         {
             composition(value)
