@@ -8,7 +8,13 @@ use syn::spanned::Spanned;
 pub fn top_level(input: Vec<Intermediate>) -> proc_macro2::TokenStream {
     let inner = codegen(input);
     quote! {
-        #inner
+        {
+            let (tx, rx) = ::tokio::sync::mpsc::channel(1);
+            let future = async move {
+                #inner
+            };
+            pin!(TemplateToStream::new(future, rx))
+        }
     }
 }
 
