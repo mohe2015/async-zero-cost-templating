@@ -21,7 +21,7 @@ async fn test() {
     let future = html! {
         <h1>"Test"</h1>
         {
-            composition(tx, value)
+            composition(value)
         }
     };
     let result: String = stream.collect().await;

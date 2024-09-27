@@ -38,9 +38,12 @@ pub fn codegen_intermediate(input: Intermediate) -> proc_macro2::TokenStream {
             }
         }
         Intermediate::Computation((_brace, computation)) => {
+            // TODO if we want to support this for attributes and elements with correct context, create two return types for html! and html_attribute! macros and then verify type here
             let span = computation.span();
             quote_spanned! {span=>
-                #computation
+                while let Some(value) = #computation.next().await {
+                    tx.send(value).await.unwrap();
+                }
             }
         }
         Intermediate::If(HtmlIf {
