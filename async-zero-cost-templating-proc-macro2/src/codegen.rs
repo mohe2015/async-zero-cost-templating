@@ -13,7 +13,7 @@ pub fn top_level(input: Vec<Intermediate>) -> proc_macro2::TokenStream {
             let future = async move {
                 #inner
             };
-            pin!(TemplateToStream::new(future, rx))
+            TemplateToStream::new(future, rx)
         }
     }
 }

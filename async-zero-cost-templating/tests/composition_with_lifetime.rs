@@ -18,16 +18,12 @@ pub fn composition<'a>(
 async fn test() {
     let value = String::from("hello world");
     let value = &value;
-    let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let future = async move {
-        html! {
-            <h1>"Test"</h1>
-            {
-                composition(tx, value).await
-            }
+    let future = html! {
+        <h1>"Test"</h1>
+        {
+            composition(tx, value)
         }
     };
-    let stream = pin!(TemplateToStream::new(future, rx));
     let result: String = stream.collect().await;
     assert_eq!(result, r#"<h1>Test</h1><a href="testhello world">Link</a>"#)
 }
