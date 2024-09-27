@@ -14,9 +14,7 @@ async fn test() {
             ( variable )
         }
     };
-    let mut stream = pin!(TemplateToStream::new(future, rx));
-    while let Some(value) = stream.next().await {
-        print!("{}", value)
-    }
-    println!();
+    let stream = pin!(TemplateToStream::new(future, rx));
+    let result: String = stream.collect().await;
+    assert_eq!(result, r#"hello worldhi"#)
 }

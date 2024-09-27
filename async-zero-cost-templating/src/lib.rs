@@ -82,17 +82,5 @@ impl<T, F: Future<Output = ()> + Send> Stream for TemplateToStream<T, F> {
             },
             None => std::task::Poll::Ready(None),
         }
-
-        /*
-           match this.receiver.poll_recv(cx) {
-                value @ std::task::Poll::Ready(_) => value,
-                std::task::Poll::Pending => {
-                    match this.future.poll(cx) {
-                        std::task::Poll::Ready(()) => this.receiver.poll_recv(cx),
-                        std::task::Poll::Pending => std::task::Poll::Pending,
-                    }
-                },
-            }
-        */
     }
 }
