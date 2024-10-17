@@ -1,3 +1,4 @@
+use itertools::Itertools as _;
 use proc_macro2::{Span, TokenStream};
 use syn::{
     spanned::Spanned,
@@ -5,8 +6,7 @@ use syn::{
 };
 
 use crate::parse::{
-    HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeContext, HtmlInAttributeValueContext,
-    HtmlInElementContext, HtmlWhile,
+    DashOrColon, HtmlElement, HtmlForLoop, HtmlIf, HtmlInAttributeContext, HtmlInAttributeValueContext, HtmlInElementContext, HtmlWhile
 };
 
 pub enum Intermediate {
@@ -23,8 +23,17 @@ impl From<HtmlInAttributeContext> for Vec<Intermediate> {
         match value {
             HtmlInAttributeContext::Literal(key, value) => Vec::from_iter(
                 [Intermediate::Literal(
-                    " ".to_owned() + &key.to_string(),
-                    key.span(),
+                    " ".to_owned() + &key.pairs()
+                    .map(|p| {
+                        p.value().to_string()
+                            + match p.punct() {
+                                Some(DashOrColon::Colon(_)) => ":",
+                                Some(DashOrColon::Dash(_)) => "-",
+                                None => "",
+                            }
+                    })
+                    .join(""),
+                    key.first().unwrap().span(),
                 )]
                 .into_iter()
                 .chain(
