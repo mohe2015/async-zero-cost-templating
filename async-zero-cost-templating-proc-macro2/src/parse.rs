@@ -7,13 +7,7 @@ use std::{
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use syn::{
-    braced, bracketed,
-    ext::IdentExt,
-    parenthesized,
-    parse::{Parse, ParseStream},
-    spanned::Spanned,
-    token::{Brace, Bracket, Else, For, If, In, Paren, While},
-    Ident, LitStr, Token,
+    braced, bracketed, ext::IdentExt, parenthesized, parse::{Parse, ParseStream}, punctuated::Punctuated, spanned::Spanned, token::{Brace, Bracket, Else, For, If, In, Paren, While}, Ident, LitStr, Token
 };
 use tracing::instrument;
 use tracing::{error, level_filters::LevelFilter};
@@ -197,9 +191,16 @@ pub enum HtmlInAttributeValueContext {
     For(HtmlForLoop<Vec<HtmlInAttributeValueContext>>),
 }
 
+
+#[derive(Debug)]
+pub enum DashOrColon {
+    Dash(Token![-]),
+    Colon(Token![:]),
+}
+
 #[derive(Debug)]
 pub enum HtmlInAttributeContext {
-    Literal(Ident, Option<(Token![=], Vec<HtmlInAttributeValueContext>)>),
+    Literal(Punctuated<Ident, DashOrColon>, Option<(Token![=], Vec<HtmlInAttributeValueContext>)>),
     Computation((Brace, TokenStream)),
     If(HtmlIf<Vec<HtmlInAttributeContext>>),
     While(HtmlWhile<Vec<HtmlInAttributeContext>>),
@@ -422,6 +423,48 @@ impl MyParse<HtmlInAttributeValueContext> for ParseStream<'_> {
     }
 }
 
+impl MyParse<DashOrColon> for ParseStream<'_> {
+    fn inner_my_parse(self) -> Result<(DashOrColon, Vec<Diagnostic>), Vec<Diagnostic>> {
+        let lookahead = self.lookahead1();
+        let dash_or_colon = if lookahead.peek(Token![-]) {
+            self.parse().map(DashOrColon::Dash).map_err(|err| Vec::from([Diagnostic::from(err)]))?
+        } else if lookahead.peek(Token![:]) {
+            self.parse().map(DashOrColon::Colon).map_err(|err| Vec::from([Diagnostic::from(err)]))?
+        } else {
+            return Err(Vec::from([Diagnostic::from(lookahead.error())]))
+        };
+        Ok((dash_or_colon, vec![]))
+    }
+}
+
+impl MyParse<Punctuated<Ident, DashOrColon>> for ParseStream<'_> {
+    fn inner_my_parse(self) -> Result<(Punctuated<Ident, DashOrColon>, Vec<Diagnostic>), Vec<Diagnostic>> {
+        let mut diagnostics = Vec::new();
+        let mut ident: Punctuated<Ident, DashOrColon> = Punctuated::new();
+        ident.push_value({
+            let value: Ident;
+            (value, diagnostics) =
+            MyParse::my_parse(self, identity, identity, diagnostics)?;
+            value
+        });
+        while self.peek(Token![-]) || self.peek(Token![:]) {
+            ident.push_punct({
+                let value: DashOrColon;
+                    (value, diagnostics) =
+                    MyParse::my_parse(self, identity, identity, diagnostics)?;
+                    value
+            });
+            ident.push_value({
+                let value: Ident;
+                (value, diagnostics) =
+                MyParse::my_parse(self, identity, identity, diagnostics)?;
+                value
+            });
+        }
+        Ok((ident, diagnostics))
+    }
+}
+
 impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
     #[instrument(err(Debug), ret, name = "Html<Inner>")]
     fn inner_my_parse(self) -> Result<(HtmlInAttributeContext, Vec<Diagnostic>), Vec<Diagnostic>> {
@@ -452,6 +495,7 @@ impl MyParse<HtmlInAttributeContext> for ParseStream<'_> {
                 diagnostics,
             )?)
         } else if lookahead.peek(Ident::peek_any) {
+            // here
             Ok((
                 HtmlInAttributeContext::Literal(
                     {
